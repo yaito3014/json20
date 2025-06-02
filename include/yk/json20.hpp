@@ -158,6 +158,14 @@ public:
     if (str == null_string) {
       return basic_json{json_value_kind::null, std::in_place_index<0>, null_string.begin(), null_string.end()};
     }
+    constexpr auto true_string = YK_JSON20_WIDEN_STRING(charT, "true");
+    if (str == true_string) {
+      return basic_json{json_value_kind::boolean, std::in_place_index<0>, true_string.begin(), true_string.end()};
+    }
+    constexpr auto false_string = YK_JSON20_WIDEN_STRING(charT, "false");
+    if (str == false_string) {
+      return basic_json{json_value_kind::boolean, std::in_place_index<0>, false_string.begin(), false_string.end()};
+    }
 
     return basic_json{json_value_kind::object, std::in_place_index<0>, str.begin(), str.end()};
   }
