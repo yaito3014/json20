@@ -7,6 +7,7 @@
 #include <concepts>
 #include <map>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -62,6 +63,7 @@ struct basic_fixed_string {
 
   using iterator = typename storage_type::iterator;
   using const_iterator = typename storage_type::const_iterator;
+  using size_type = typename storage_type::size_type;
 
   constexpr basic_fixed_string(const charT (&str)[N + 1]) noexcept { std::ranges::copy(str, data.begin()); }
 
@@ -71,6 +73,7 @@ struct basic_fixed_string {
   constexpr const_iterator end() const noexcept { return data.end() - 1; }
 
   constexpr std::basic_string_view<charT> get() const noexcept { return {begin(), end()}; }
+  constexpr size_type size() const noexcept { return N; }
 
   friend constexpr bool operator==(std::basic_string_view<charT> a, basic_fixed_string b) noexcept
   {
@@ -152,21 +155,55 @@ enum class json_value_kind {
 template <class charT>
 class basic_json {
 public:
-  static constexpr basic_json parse(std::basic_string_view<charT> str)
+  struct parse_result {
+    std::optional<basic_json> value;
+    std::basic_string_view<charT> rest;
+
+    constexpr explicit operator bool() const noexcept { return value.has_value() && rest.empty(); }
+  };
+
+  static constexpr parse_result parse_null(std::basic_string_view<charT> str)
   {
     constexpr auto null_string = YK_JSON20_WIDEN_STRING(charT, "null");
-    if (str == null_string) {
-      return basic_json{json_value_kind::null, std::in_place_index<0>, null_string.begin(), null_string.end()};
+    if (str.starts_with(null_string.get())) {
+      return {
+          basic_json{json_value_kind::null, std::in_place_index<0>, null_string.begin(), null_string.end()},
+          str.substr(null_string.size()),
+      };
+    } else {
+      return {
+          std::nullopt,
+          str,
+      };
     }
-    constexpr auto true_string = YK_JSON20_WIDEN_STRING(charT, "true");
-    if (str == true_string) {
-      return basic_json{json_value_kind::boolean, std::in_place_index<0>, true_string.begin(), true_string.end()};
-    }
-    constexpr auto false_string = YK_JSON20_WIDEN_STRING(charT, "false");
-    if (str == false_string) {
-      return basic_json{json_value_kind::boolean, std::in_place_index<0>, false_string.begin(), false_string.end()};
-    }
+  }
 
+  static constexpr parse_result parse_boolean(std::basic_string_view<charT> str)
+  {
+    constexpr auto true_string = YK_JSON20_WIDEN_STRING(charT, "true");
+    constexpr auto false_string = YK_JSON20_WIDEN_STRING(charT, "false");
+    if (str.starts_with(true_string.get())) {
+      return {
+          basic_json{json_value_kind::boolean, std::in_place_index<0>, true_string.begin(), true_string.end()},
+          str.substr(true_string.size()),
+      };
+    } else if (str.starts_with(false_string.get())) {
+      return {
+          basic_json{json_value_kind::boolean, std::in_place_index<0>, false_string.begin(), false_string.end()},
+          str.substr(false_string.size()),
+      };
+    } else {
+      return {
+          std::nullopt,
+          str,
+      };
+    }
+  }
+
+  static constexpr basic_json parse(std::basic_string_view<charT> str)
+  {
+    if (auto res = parse_null(str)) return *std::move(res).value;
+    if (auto res = parse_boolean(str)) return *std::move(res).value;
     return basic_json{json_value_kind::object, std::in_place_index<0>, str.begin(), str.end()};
   }
 
