@@ -211,7 +211,7 @@ private:
   {
     return [p1, p2](std::basic_string_view<charT> str) -> parse_result {
       if (auto res1 = p1(str); res1.match) {
-        if (auto res2 = p2(str); res2.match) {
+        if (auto res2 = p2(res1.rest); res2.match) {
           return {
               std::basic_string_view<charT>{str.begin(), res2.match->end()},
               res2.rest,
@@ -267,7 +267,7 @@ private:
           res = p(res.rest);
         }
         return {
-            std::basic_string_view<charT>{str.begin(), res.match->end()},
+            std::basic_string_view<charT>{str.begin(), res.rest.begin()},
             res.rest,
         };
       } else {
@@ -340,26 +340,51 @@ private:
 
     const auto parse_minus = lit(YK_JSON20_WIDEN_STRING(charT, "-").get());
     const auto parse_plus = lit(YK_JSON20_WIDEN_STRING(charT, "+").get());
+    const auto parse_sign = alt(parse_minus, parse_plus);
 
-    const auto res = parse_minus(str);
-    const bool has_minus_sign = bool(res.match);
-    const auto int_dot_frac_e_exp = res.rest;
+    const auto parse_dot = lit(YK_JSON20_WIDEN_STRING(charT, ".").get());
+    const auto parse_e =
+        alt(lit(YK_JSON20_WIDEN_STRING(charT, "e").get()), lit(YK_JSON20_WIDEN_STRING(charT, "E").get()));
+
+    const auto parse_frac = seq(parse_dot, many(parse0to9));
+    const auto parse_exp = seq(parse_e, opt(parse_sign), many(parse0to9));
+
+    const auto res1 = parse_minus(str);
+    const bool has_minus_sign = bool(res1.match);
+    const auto int_frac_exp = res1.rest;
 
     const auto parser = alt(parse0, seq(parse1to9, many(parse0to9)));
-    if (auto res = parser(int_dot_frac_e_exp); res.match) {
+    if (auto res2 = parser(int_frac_exp); res2.match) {
+      const auto frac_exp = res2.rest;
+
+      auto res3 = parse_frac(frac_exp);
+      const bool has_frac = bool(res3.match);
+      const auto exp = res3.rest;
+
+      auto res4 = parse_exp(exp);
+      const bool has_exp = bool(res4.match);
+      const auto rest = res4.rest;
+
+      const auto parse_minus_exp = seq(parse_e, parse_minus, many(parse0), many1(parse1to9));
+      auto res5 = parse_minus_exp(exp);
+      const bool has_minus_exp = bool(res5);
+
       return {
           basic_json{
-              has_minus_sign ? json_value_kind::number_signed_integer : json_value_kind::number_unsigned_integer,
+              has_frac || has_minus_exp ? json_value_kind::number_floating_point
+              : has_minus_sign          ? json_value_kind::number_signed_integer
+                                        : json_value_kind::number_unsigned_integer,
               std::in_place_index<0>,
-              res.match->begin(),
-              res.match->end(),
+              str.begin(),
+              rest.begin(),
           },
-          res.rest
+          rest,
       };
+
     } else {
       return {
           std::nullopt,
-          res.rest,
+          res2.rest,
       };
     }
   }
