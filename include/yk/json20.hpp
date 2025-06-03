@@ -365,15 +365,11 @@ private:
       const bool has_exp = bool(res4.match);
       const auto rest = res4.rest;
 
-      const auto parse_minus_exp = seq(parse_e, parse_minus, many(parse0), many1(parse1to9));
-      auto res5 = parse_minus_exp(exp);
-      const bool has_minus_exp = bool(res5);
-
       return {
           basic_json{
-              has_frac || has_minus_exp ? json_value_kind::number_floating_point
-              : has_minus_sign          ? json_value_kind::number_signed_integer
-                                        : json_value_kind::number_unsigned_integer,
+              has_frac || has_exp ? json_value_kind::number_floating_point
+              : has_minus_sign    ? json_value_kind::number_signed_integer
+                                  : json_value_kind::number_unsigned_integer,
               std::in_place_index<0>,
               str.begin(),
               rest.begin(),
