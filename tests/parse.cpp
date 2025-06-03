@@ -116,4 +116,16 @@ BOOST_AUTO_TEST_CASE(string)
   }
 }
 
+BOOST_AUTO_TEST_CASE(object)
+{
+  {
+    const auto x = json::parse("{}");
+    BOOST_TEST((x.get_kind() == yk::json20::json_value_kind::object));
+  }
+  {
+    const auto x = json::parse("{\"foo\":1234}");
+    BOOST_TEST((x.get_kind() == yk::json20::json_value_kind::object));
+  }
+}
+
 BOOST_AUTO_TEST_SUITE_END()

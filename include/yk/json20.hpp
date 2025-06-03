@@ -504,15 +504,54 @@ private:
     return {std::nullopt, str};
   }
 
-  // static constexpr json_parse_result parse_object(std::basic_string_view<charT> str) noexcept
-  // {
-  //   const auto open_brace = YK_JSON20_WIDEN_STRING(charT, "{");
-  //   const auto close_brace = YK_JSON20_WIDEN_STRING(charT, "}");
-  // }
+  static constexpr json_parse_result parse_object(std::basic_string_view<charT> str) noexcept
+  {
+    const auto open_brace = YK_JSON20_WIDEN_STRING(charT, "{");
+    const auto close_brace = YK_JSON20_WIDEN_STRING(charT, "}");
+    const auto colon = YK_JSON20_WIDEN_STRING(charT, ":");
+    const auto comma = YK_JSON20_WIDEN_STRING(charT, ",");
+
+    const auto key_value_parser = seq(ws, parse_string, ws, lit(colon.get()), parse_value);
+    const auto parser =
+        seq(lit(open_brace.get()), alt(sep_by(key_value_parser, lit(comma.get())), ws), lit(close_brace.get()));
+
+    if (auto res = parser(str); res.value) {
+      auto var = std::get<0>(std::get<1>(*std::move(res.value)));
+      if (std::holds_alternative<none_type>(var)) {
+        return {
+            basic_json{
+                json_value_kind::object,
+                std::in_place_index<2>,
+                std::map<std::basic_string<charT>, basic_json>{},
+            },
+            res.rest,
+        };
+      } else {
+        std::map<std::basic_string<charT>, basic_json> map;
+
+        for (auto& [_, key_val] : std::get<0>(var)) {
+          auto [key, vals] = std::move(key_val);
+          auto val = std::get<1>(std::get<1>(std::move(vals)));
+          map.emplace(std::move(key).get_string().value(), val);
+        }
+
+        return {
+            basic_json{
+                json_value_kind::object,
+                std::in_place_index<2>,
+                std::move(map),
+            },
+            res.rest,
+        };
+      }
+    }
+    return {std::nullopt, str};
+  }
 
   static constexpr json_parse_result parse_value(std::basic_string_view<charT> str) noexcept
   {
-    const auto parser = seq(ws, alt(parse_null, parse_boolean, parse_number, parse_string, parse_array), ws);
+    const auto parser =
+        seq(ws, alt(parse_null, parse_boolean, parse_number, parse_string, parse_array, parse_object), ws);
     if (auto res = parser(str); res.value) {
       return {std::get<0>(std::get<1>(*std::move(res.value))), res.rest};
     }
