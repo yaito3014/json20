@@ -211,7 +211,7 @@ public:
 
 private:
   template <class... Args>
-  constexpr basic_json(json_value_kind kind, Args&&... args) : kind_(kind), var(std::forward<Args>(args)...)
+  constexpr basic_json(json_value_kind kind, Args&&... args) : kind_(kind), data_(std::forward<Args>(args)...)
   {
   }
 
@@ -221,7 +221,7 @@ private:
       std::vector<std::unique_ptr<basic_json>>,                        //
       std::map<std::basic_string<charT>, std::unique_ptr<basic_json>>  //
       >
-      var;
+      data_;
 };
 
 }  // namespace json20
