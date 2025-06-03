@@ -6,7 +6,6 @@
 #include <charconv>
 #include <concepts>
 #include <map>
-#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -404,9 +403,9 @@ private:
 
   json_value_kind kind_;
   std::variant<
-      std::basic_string<charT>,                                        //
-      std::vector<std::unique_ptr<basic_json>>,                        //
-      std::map<std::basic_string<charT>, std::unique_ptr<basic_json>>  //
+      std::basic_string<charT>,                       //
+      std::vector<basic_json>,                        //
+      std::map<std::basic_string<charT>, basic_json>  //
       >
       data_;
 };
