@@ -139,13 +139,13 @@ constexpr auto make_deserialize_result(typename std::basic_string_view<charT>::i
 
 template <class T, class charT = char>
 struct deserializer {
-  constexpr auto deserialize(std::basic_string_view<charT> str) const = delete;
+  static constexpr auto deserialize(std::basic_string_view<charT> str) = delete;
 };
 
 template <class T, class charT>
   requires std::integral<T> || std::floating_point<T>
 struct deserializer<T, charT> {
-  constexpr auto deserialize(std::basic_string_view<charT> str) const
+  static constexpr auto deserialize(std::basic_string_view<charT> str)
   {
     T value{};
     auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), value);
@@ -168,48 +168,65 @@ enum class json_value_kind {
 template <class charT>
 class basic_json {
 public:
-  struct json_parse_result {
-    std::optional<basic_json> value;
+  template <class T>
+  struct parse_result {
+    using value_type = T;
+
+    std::optional<T> value;
     std::basic_string_view<charT> rest;
 
     constexpr explicit operator bool() const noexcept { return value.has_value() && rest.empty(); }
   };
 
+  using json_parse_result = parse_result<basic_json>;
+
 private:
-  struct parse_result {
-    std::optional<std::basic_string_view<charT>> match;
-    std::basic_string_view<charT> rest;
-
-    constexpr explicit operator bool() const noexcept { return match && rest.empty(); }
-  };
-
   static constexpr auto lit(std::basic_string_view<charT> literal) noexcept
   {
-    return [literal](std::basic_string_view<charT> str) -> parse_result {
+    return [literal](std::basic_string_view<charT> str) -> parse_result<std::basic_string_view<charT>> {
       if (str.starts_with(literal)) {
         return {
             str.substr(0, literal.size()),
             str.substr(literal.size()),
         };
       } else {
-        return {
-            std::nullopt,
-            str,
-        };
+        return {std::nullopt, str};
       }
     };
   }
 
+  static constexpr auto except(std::basic_string_view<charT> literal) noexcept
+  {
+    return [literal](std::basic_string_view<charT> str) -> parse_result<charT> {
+      if (str.starts_with(literal))
+        return {std::nullopt, str};
+      else
+        return {str.front(), str.substr(1)};
+    };
+  }
+
+  struct none_type {};
+  static inline constexpr none_type none{};
+
+  template <class T, class U>
+  struct alt_result {
+    using type = std::variant<T, U>;
+  };
+
+  template <class T>
+  struct alt_result<T, T> {
+    using type = T;
+  };
+
   template <class Parser1, class Parser2>
   static constexpr auto alt(const Parser1& p1, const Parser2& p2) noexcept
   {
-    return [p1, p2](std::basic_string_view<charT> str) -> parse_result {
-      if (auto res = p1(str); res.match) return res;
-      if (auto res = p2(str); res.match) return res;
-      return {
-          std::nullopt,
-          str,
-      };
+    using T = typename std::invoke_result_t<Parser1, std::basic_string_view<charT>>::value_type;
+    using U = typename std::invoke_result_t<Parser2, std::basic_string_view<charT>>::value_type;
+    return [p1, p2](std::basic_string_view<charT> str) -> parse_result<typename alt_result<T, U>::type> {
+      if (auto res1 = p1(str); res1.value) return {*res1.value, res1.rest};
+      if (auto res2 = p2(str); res2.value) return {*res2.value, res2.rest};
+      return {std::nullopt, str};
     };
   }
 
@@ -219,22 +236,26 @@ private:
     return alt(p1, alt(p2, p3, parsers...));
   }
 
+  template <class T, class U>
+  struct seq_result {
+    using type = std::tuple<T, U>;
+  };
+
   template <class Parser1, class Parser2>
   static constexpr auto seq(const Parser1& p1, const Parser2& p2) noexcept
   {
-    return [p1, p2](std::basic_string_view<charT> str) -> parse_result {
-      if (auto res1 = p1(str); res1.match) {
-        if (auto res2 = p2(res1.rest); res2.match) {
+    using T = typename std::invoke_result_t<Parser1, std::basic_string_view<charT>>::value_type;
+    using U = typename std::invoke_result_t<Parser2, std::basic_string_view<charT>>::value_type;
+    return [p1, p2](std::basic_string_view<charT> str) -> parse_result<typename seq_result<T, U>::type> {
+      if (auto res1 = p1(str); res1.value) {
+        if (auto res2 = p2(res1.rest); res2.value) {
           return {
-              std::basic_string_view<charT>{str.begin(), res2.match->end()},
+              std::tuple{*res1.value, *res2.value},
               res2.rest,
           };
         }
       }
-      return {
-          std::nullopt,
-          str,
-      };
+      return {std::nullopt, str};
     };
   }
 
@@ -247,10 +268,11 @@ private:
   template <class Parser>
   static constexpr auto opt(const Parser& p) noexcept
   {
-    return [p](std::basic_string_view<charT> str) -> parse_result {
-      if (auto res = p(str); res.match) return res;
+    using T = typename std::invoke_result_t<Parser, std::basic_string_view<charT>>::value_type;
+    return [p](std::basic_string_view<charT> str) -> parse_result<std::optional<T>> {
+      if (auto res = p(str); res.value) return {*res.value, res.rest};
       return {
-          str.substr(0, 0),
+          std::optional<std::optional<T>>{std::in_place, std::nullopt},
           str,
       };
     };
@@ -259,13 +281,16 @@ private:
   template <class Parser>
   static constexpr auto many(const Parser& p) noexcept
   {
-    return [p](std::basic_string_view<charT> str) -> parse_result {
-      parse_result res = p(str);
-      while (res.match) {
+    using T = typename std::invoke_result_t<Parser, std::basic_string_view<charT>>::value_type;
+    return [p](std::basic_string_view<charT> str) -> parse_result<std::vector<T>> {
+      std::vector<T> vec;
+      parse_result<T> res = p(str);
+      while (res.value) {
+        vec.emplace_back(*std::move(res.value));
         res = p(res.rest);
       }
       return {
-          std::basic_string_view<charT>{str.begin(), res.rest.begin()},
+          vec,
           res.rest,
       };
     };
@@ -274,18 +299,34 @@ private:
   template <class Parser>
   static constexpr auto many1(const Parser& p) noexcept
   {
-    return [p](std::basic_string_view<charT> str) -> parse_result {
-      if (parse_result res = p(str); res.match) {
-        while (res.match) {
+    using T = typename std::invoke_result_t<Parser, std::basic_string_view<charT>>::value_type;
+    return [p](std::basic_string_view<charT> str) -> parse_result<std::vector<T>> {
+      std::vector<T> vec;
+      if (parse_result<T> res = p(str); res.value) {
+        while (res.value) {
+          vec.emplace_back(*std::move(res.value));
           res = p(res.rest);
         }
-        return {
-            std::basic_string_view<charT>{str.begin(), res.rest.begin()},
-            res.rest,
-        };
-      } else {
-        return res;
+        return {vec, res.rest};
       }
+      return {std::nullopt, str};
+    };
+  }
+
+  template <class Parser, class Delim>
+  static constexpr auto sep_by(const Parser& p, const Delim& d) noexcept
+  {
+    using T = typename std::invoke_result_t<Parser, std::basic_string_view<charT>>::value_type;
+    return [p, d](std::basic_string_view<charT> str) -> parse_result<std::vector<T>> {
+      if (auto res = seq(p, many(seq(d, p)))(str); res.value) {
+        auto [first, rest] = *std::move(res.value);
+        std::vector<T> vec;
+        vec.reserve(1 + rest.size());
+        vec.emplace_back(std::move(first));
+        for (auto& [_, elem] : rest) vec.emplace_back(std::move(elem));
+        return {vec, res.rest};
+      }
+      return {std::nullopt, str};
     };
   }
 
@@ -293,13 +334,13 @@ private:
   {
     constexpr auto null_string = YK_JSON20_WIDEN_STRING(charT, "null");
 
-    if (auto res = lit(null_string.get())(str); res.match) {
+    if (auto res = lit(null_string.get())(str); res.value) {
       return {
           basic_json{
               json_value_kind::null,
               std::in_place_index<0>,
-              res.match->begin(),
-              res.match->end(),
+              res.value->begin(),
+              res.value->end(),
           },
           res.rest,
       };
@@ -311,18 +352,29 @@ private:
     }
   }
 
+  static constexpr parse_result<none_type> ws(std::basic_string_view<charT> str) noexcept
+  {
+    const auto space = YK_JSON20_WIDEN_STRING(charT, " ");
+    const auto lf = YK_JSON20_WIDEN_STRING(charT, "\n");
+    const auto cr = YK_JSON20_WIDEN_STRING(charT, "\r");
+    const auto tab = YK_JSON20_WIDEN_STRING(charT, "\t");
+
+    const auto parser = many(alt(lit(space.get()), lit(lf.get()), lit(cr.get()), lit(tab.get())));
+    return {none, parser(str).rest};
+  }
+
   static constexpr json_parse_result parse_boolean(std::basic_string_view<charT> str) noexcept
   {
     constexpr auto true_string = YK_JSON20_WIDEN_STRING(charT, "true");
     constexpr auto false_string = YK_JSON20_WIDEN_STRING(charT, "false");
 
-    if (auto res = alt(lit(true_string.get()), lit(false_string.get()))(str); res.match) {
+    if (auto res = alt(lit(true_string.get()), lit(false_string.get()))(str); res.value) {
       return {
           basic_json{
               json_value_kind::boolean,
               std::in_place_index<0>,
-              res.match->begin(),
-              res.match->end(),
+              res.value->begin(),
+              res.value->end(),
           },
           res.rest,
       };
@@ -363,19 +415,19 @@ private:
     const auto parse_exp = seq(parse_e, opt(parse_sign), many(parse0to9));
 
     const auto res1 = parse_minus(str);
-    const bool has_minus_sign = bool(res1.match);
+    const bool has_minus_sign = bool(res1.value);
     const auto int_frac_exp = res1.rest;
 
     const auto parser = alt(parse0, seq(parse1to9, many(parse0to9)));
-    if (auto res2 = parser(int_frac_exp); res2.match) {
+    if (auto res2 = parser(int_frac_exp); res2.value) {
       const auto frac_exp = res2.rest;
 
       auto res3 = parse_frac(frac_exp);
-      const bool has_frac = bool(res3.match);
+      const bool has_frac = bool(res3.value);
       const auto exp = res3.rest;
 
       auto res4 = parse_exp(exp);
-      const bool has_exp = bool(res4.match);
+      const bool has_exp = bool(res4.value);
       const auto rest = res4.rest;
 
       return {
@@ -398,12 +450,79 @@ private:
     }
   }
 
+  static constexpr json_parse_result parse_array(std::basic_string_view<charT> str) noexcept
+  {
+    const auto open_bracket = YK_JSON20_WIDEN_STRING(charT, "[");
+    const auto close_bracket = YK_JSON20_WIDEN_STRING(charT, "]");
+    const auto comma = YK_JSON20_WIDEN_STRING(charT, ",");
+
+    const auto parser =
+        seq(lit(open_bracket.get()), alt(sep_by(parse_value, lit(comma.get())), ws), lit(close_bracket.get()));
+    if (auto res = parser(str); res.value) {
+      auto var = std::get<0>(std::get<1>(*std::move(res.value)));
+      if (std::holds_alternative<none_type>(var)) {
+        return {
+            basic_json{
+                json_value_kind::array,
+                std::in_place_index<1>,
+                std::vector<basic_json>{},
+            },
+            res.rest,
+        };
+      } else {
+        return {
+            basic_json{
+                json_value_kind::array,
+                std::in_place_index<1>,
+                std::get<std::vector<basic_json>>(std::move(var)),
+            },
+            res.rest,
+        };
+      }
+    }
+
+    return {std::nullopt, str};
+  }
+
+  static constexpr json_parse_result parse_string(std::basic_string_view<charT> str) noexcept
+  {
+    const auto quote = YK_JSON20_WIDEN_STRING(charT, "\"");
+
+    const auto parser = seq(lit(quote.get()), many(except(quote.get())), lit(quote.get()));
+    if (auto res = parser(str); res.value) {
+      const auto string = std::get<0>(std::get<1>(*std::move(res.value)));
+      return {
+          basic_json{
+              json_value_kind::string,
+              std::in_place_index<0>,
+              string.begin(),
+              string.end(),
+          },
+          res.rest,
+      };
+    }
+    return {std::nullopt, str};
+  }
+
+  // static constexpr json_parse_result parse_object(std::basic_string_view<charT> str) noexcept
+  // {
+  //   const auto open_brace = YK_JSON20_WIDEN_STRING(charT, "{");
+  //   const auto close_brace = YK_JSON20_WIDEN_STRING(charT, "}");
+  // }
+
+  static constexpr json_parse_result parse_value(std::basic_string_view<charT> str) noexcept
+  {
+    const auto parser = seq(ws, alt(parse_null, parse_boolean, parse_number, parse_string, parse_array), ws);
+    if (auto res = parser(str); res.value) {
+      return {std::get<0>(std::get<1>(*std::move(res.value))), res.rest};
+    }
+    return {std::nullopt, str};
+  }
+
 public:
   static constexpr basic_json parse(std::basic_string_view<charT> str)
   {
-    if (auto res = parse_null(str)) return *std::move(res).value;
-    if (auto res = parse_boolean(str)) return *std::move(res).value;
-    if (auto res = parse_number(str)) return *std::move(res).value;
+    if (auto res = parse_value(str)) return *std::move(res).value;
     throw std::invalid_argument("invalid JSON");
   }
 
@@ -411,24 +530,33 @@ public:
   constexpr std::optional<T> get_unsigned_integer() const noexcept
   {
     if (get_kind() != json_value_kind::number_unsigned_integer) return std::nullopt;
-    const deserializer<T, charT> de;
-    return std::make_from_tuple<T>(de.deserialize(std::get<0>(data_)).args);
+    return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
   }
 
   template <class T>
   constexpr std::optional<T> get_signed_integer() const noexcept
   {
     if (get_kind() != json_value_kind::number_signed_integer) return std::nullopt;
-    const deserializer<T, charT> de;
-    return std::make_from_tuple<T>(de.deserialize(std::get<0>(data_)).args);
+    return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
   }
 
   template <class T>
   constexpr std::optional<T> get_floating_point() const noexcept
   {
     if (get_kind() != json_value_kind::number_floating_point) return std::nullopt;
-    const deserializer<T, charT> de;
-    return std::make_from_tuple<T>(de.deserialize(std::get<0>(data_)).args);
+    return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
+  }
+
+  constexpr std::optional<std::vector<basic_json>> get_array() const noexcept
+  {
+    if (get_kind() != json_value_kind::array) return std::nullopt;
+    return std::get<1>(data_);
+  }
+
+  constexpr std::optional<std::basic_string<charT>> get_string() const noexcept
+  {
+    if (get_kind() != json_value_kind::string) return std::nullopt;
+    return std::get<0>(data_);
   }
 
   constexpr json_value_kind get_kind() const noexcept { return kind_; }

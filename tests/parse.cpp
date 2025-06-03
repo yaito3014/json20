@@ -88,4 +88,32 @@ BOOST_AUTO_TEST_CASE(number_floating_point)
   }
 }
 
+BOOST_AUTO_TEST_CASE(array)
+{
+  {
+    const auto x = json::parse("[]");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::array));
+    BOOST_ASSERT(x.get_array().value().empty());
+  }
+  {
+    const auto x = json::parse("[ ]");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::array));
+    BOOST_ASSERT(x.get_array().value().empty());
+  }
+  {
+    const auto x = json::parse("[12]");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::array));
+    BOOST_ASSERT(x.get_array().value()[0].get_unsigned_integer<unsigned>().value() == 12);
+  }
+}
+
+BOOST_AUTO_TEST_CASE(string)
+{
+  {
+    const auto x = json::parse("\"foo\"");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::string));
+    BOOST_ASSERT(x.get_string().value() == "foo");
+  }
+}
+
 BOOST_AUTO_TEST_SUITE_END()
