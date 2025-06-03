@@ -155,56 +155,115 @@ enum class json_value_kind {
 template <class charT>
 class basic_json {
 public:
-  struct parse_result {
+  struct json_parse_result {
     std::optional<basic_json> value;
     std::basic_string_view<charT> rest;
 
     constexpr explicit operator bool() const noexcept { return value.has_value() && rest.empty(); }
   };
 
-  static constexpr parse_result parse_null(std::basic_string_view<charT> str)
+private:
+  struct parse_result {
+    std::optional<std::basic_string_view<charT>> match;
+    std::basic_string_view<charT> rest;
+
+    constexpr explicit operator bool() const noexcept { return match && rest.empty(); }
+  };
+
+  static constexpr auto lit(std::basic_string_view<charT> literal) noexcept
   {
-    constexpr auto null_string = YK_JSON20_WIDEN_STRING(charT, "null");
-    if (str.starts_with(null_string.get())) {
-      return {
-          basic_json{json_value_kind::null, std::in_place_index<0>, null_string.begin(), null_string.end()},
-          str.substr(null_string.size()),
-      };
-    } else {
+    return [literal](std::basic_string_view<charT> str) -> parse_result {
+      if (str.starts_with(literal)) {
+        return {
+            str.substr(0, literal.size()),
+            str.substr(literal.size()),
+        };
+      } else {
+        return {
+            std::nullopt,
+            str,
+        };
+      }
+    };
+  }
+
+  template <class Parser1, class Parser2>
+  static constexpr auto alt(const Parser1& p1, const Parser2& p2) noexcept
+  {
+    return [p1, p2](std::basic_string_view<charT> str) -> parse_result {
+      if (auto res = p1(str); res.match) return res;
+      if (auto res = p2(str); res.match) return res;
       return {
           std::nullopt,
           str,
       };
+    };
+  }
+
+  template <class Parser1, class Parser2, class Parser3, class... Parsers>
+  static constexpr auto alt(const Parser1& p1, const Parser2& p2, const Parser3& p3, const Parsers&... parsers) noexcept
+  {
+    return [p1, p2 = alt(p2, p3, parsers...)](std::basic_string_view<charT> str) -> parse_result {
+      if (auto res = p1(str); res.match) return res;
+      if (auto res = p2(str); res.match) return res;
+      return {
+          std::nullopt,
+          str,
+      };
+    };
+  }
+
+  static constexpr json_parse_result parse_null(std::basic_string_view<charT> str) noexcept
+  {
+    constexpr auto null_string = YK_JSON20_WIDEN_STRING(charT, "null");
+
+    if (auto res = lit(null_string.get())(str); res.match) {
+      return {
+          basic_json{
+              json_value_kind::null,
+              std::in_place_index<0>,
+              res.match->begin(),
+              res.match->end(),
+          },
+          res.rest,
+      };
+    } else {
+      return {
+          std::nullopt,
+          res.rest,
+      };
     }
   }
 
-  static constexpr parse_result parse_boolean(std::basic_string_view<charT> str)
+  static constexpr json_parse_result parse_boolean(std::basic_string_view<charT> str) noexcept
   {
     constexpr auto true_string = YK_JSON20_WIDEN_STRING(charT, "true");
     constexpr auto false_string = YK_JSON20_WIDEN_STRING(charT, "false");
-    if (str.starts_with(true_string.get())) {
+
+    if (auto res = alt(lit(true_string.get()), lit(false_string.get()))(str); res.match) {
       return {
-          basic_json{json_value_kind::boolean, std::in_place_index<0>, true_string.begin(), true_string.end()},
-          str.substr(true_string.size()),
-      };
-    } else if (str.starts_with(false_string.get())) {
-      return {
-          basic_json{json_value_kind::boolean, std::in_place_index<0>, false_string.begin(), false_string.end()},
-          str.substr(false_string.size()),
+          basic_json{
+              json_value_kind::boolean,
+              std::in_place_index<0>,
+              res.match->begin(),
+              res.match->end(),
+          },
+          res.rest,
       };
     } else {
       return {
           std::nullopt,
-          str,
+          res.rest,
       };
     }
   }
 
+public:
   static constexpr basic_json parse(std::basic_string_view<charT> str)
   {
     if (auto res = parse_null(str)) return *std::move(res).value;
     if (auto res = parse_boolean(str)) return *std::move(res).value;
-    return basic_json{json_value_kind::object, std::in_place_index<0>, str.begin(), str.end()};
+    throw std::invalid_argument("invalid JSON");
   }
 
   constexpr json_value_kind get_kind() const noexcept { return kind_; }
