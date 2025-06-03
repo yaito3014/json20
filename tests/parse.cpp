@@ -26,4 +26,16 @@ BOOST_AUTO_TEST_CASE(boolean)
   }
 }
 
+BOOST_AUTO_TEST_CASE(number_unsigned_integer)
+{
+  {
+    const auto x = json::parse("0");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::number_unsigned_integer));
+  }
+  {
+    const auto x = json::parse("1234");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::number_unsigned_integer));
+  }
+}
+
 BOOST_AUTO_TEST_SUITE_END()

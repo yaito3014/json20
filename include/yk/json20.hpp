@@ -203,13 +203,64 @@ private:
   template <class Parser1, class Parser2, class Parser3, class... Parsers>
   static constexpr auto alt(const Parser1& p1, const Parser2& p2, const Parser3& p3, const Parsers&... parsers) noexcept
   {
-    return [p1, p2 = alt(p2, p3, parsers...)](std::basic_string_view<charT> str) -> parse_result {
-      if (auto res = p1(str); res.match) return res;
-      if (auto res = p2(str); res.match) return res;
+    return alt(p1, alt(p2, p3, parsers...));
+  }
+
+  template <class Parser1, class Parser2>
+  static constexpr auto seq(const Parser1& p1, const Parser2& p2) noexcept
+  {
+    return [p1, p2](std::basic_string_view<charT> str) -> parse_result {
+      if (auto res1 = p1(str); res1.match) {
+        if (auto res2 = p2(str); res2.match) {
+          return {
+              std::basic_string_view<charT>{str.begin(), res2.match->end()},
+              res2.rest,
+          };
+        }
+      }
       return {
           std::nullopt,
           str,
       };
+    };
+  }
+
+  template <class Parser1, class Parser2, class Parser3, class... Parsers>
+  static constexpr auto seq(const Parser1& p1, const Parser2& p2, const Parser3& p3, const Parsers&... parsers) noexcept
+  {
+    return seq(p1, seq(p2, p3, parsers...));
+  }
+
+  template <class Parser>
+  static constexpr auto many(const Parser& p) noexcept
+  {
+    return [p](std::basic_string_view<charT> str) -> parse_result {
+      parse_result res = p(str);
+      while (res.match) {
+        res = p(res.rest);
+      }
+      return {
+          std::basic_string_view<charT>{str.begin(), res.rest.begin()},
+          res.rest,
+      };
+    };
+  }
+
+  template <class Parser>
+  static constexpr auto many1(const Parser& p) noexcept
+  {
+    return [p](std::basic_string_view<charT> str) -> parse_result {
+      if (parse_result res = p(str); res.match) {
+        while (res.match) {
+          res = p(res.rest);
+        }
+        return {
+            std::basic_string_view<charT>{str.begin(), res.match->end()},
+            res.rest,
+        };
+      } else {
+        return res;
+      }
     };
   }
 
@@ -258,11 +309,48 @@ private:
     }
   }
 
+  static constexpr json_parse_result parse_number(std::basic_string_view<charT> str) noexcept
+  {
+    const auto parse0 = lit(YK_JSON20_WIDEN_STRING(charT, "0").get());
+    const auto parse1to9 =
+        alt(                                                //
+            lit(YK_JSON20_WIDEN_STRING(charT, "1").get()),  //
+            lit(YK_JSON20_WIDEN_STRING(charT, "2").get()),  //
+            lit(YK_JSON20_WIDEN_STRING(charT, "3").get()),  //
+            lit(YK_JSON20_WIDEN_STRING(charT, "4").get()),  //
+            lit(YK_JSON20_WIDEN_STRING(charT, "5").get()),  //
+            lit(YK_JSON20_WIDEN_STRING(charT, "6").get()),  //
+            lit(YK_JSON20_WIDEN_STRING(charT, "7").get()),  //
+            lit(YK_JSON20_WIDEN_STRING(charT, "8").get()),  //
+            lit(YK_JSON20_WIDEN_STRING(charT, "9").get())   //
+        );
+    const auto parse0to9 = alt(parse0, parse1to9);
+
+    const auto parser = alt(parse0, seq(parse1to9, many(parse0to9)));
+    if (auto res = parser(str); res.match) {
+      return {
+          basic_json{
+              json_value_kind::number_unsigned_integer,
+              std::in_place_index<0>,
+              res.match->begin(),
+              res.match->end(),
+          },
+          res.rest
+      };
+    } else {
+      return {
+          std::nullopt,
+          res.rest,
+      };
+    }
+  }
+
 public:
   static constexpr basic_json parse(std::basic_string_view<charT> str)
   {
     if (auto res = parse_null(str)) return *std::move(res).value;
     if (auto res = parse_boolean(str)) return *std::move(res).value;
+    if (auto res = parse_number(str)) return *std::move(res).value;
     throw std::invalid_argument("invalid JSON");
   }
 
