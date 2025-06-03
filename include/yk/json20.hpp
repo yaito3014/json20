@@ -125,18 +125,32 @@ struct select_str<char32_t, Str, WStr, U8Str, U16Str, U32Str> {
 
 }  // namespace detail
 
-template <class T, class charT = char>
-struct deserializer {
-  constexpr auto deserialize(T& ref, std::basic_string_view<charT> str) = delete;
+template <class charT, class Tuple>
+struct deserialize_result {
+  typename std::basic_string_view<charT>::iterator it;
+  Tuple args;
 };
 
-template <std::integral T, class charT>
+template <class charT, class... Args>
+constexpr auto make_deserialize_result(typename std::basic_string_view<charT>::iterator it, Args&&... args) noexcept
+{
+  return deserialize_result<charT, std::tuple<Args...>>{it, std::forward_as_tuple(std::forward<Args>(args)...)};
+}
+
+template <class T, class charT = char>
+struct deserializer {
+  constexpr auto deserialize(std::basic_string_view<charT> str) const = delete;
+};
+
+template <class T, class charT>
+  requires std::integral<T> || std::floating_point<T>
 struct deserializer<T, charT> {
-  constexpr auto deserialize(T& ref, std::basic_string_view<charT> str)
+  constexpr auto deserialize(std::basic_string_view<charT> str) const
   {
-    auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), ref);
+    T value{};
+    auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), value);
     if (ec != std::errc{}) throw std::invalid_argument("from_chars error");
-    return str.begin() + (ptr - str.data());
+    return make_deserialize_result<charT>(str.begin() + (ptr - str.data()), std::move(value));
   }
 };
 
@@ -391,6 +405,30 @@ public:
     if (auto res = parse_boolean(str)) return *std::move(res).value;
     if (auto res = parse_number(str)) return *std::move(res).value;
     throw std::invalid_argument("invalid JSON");
+  }
+
+  template <class T>
+  constexpr std::optional<T> get_unsigned_integer() const noexcept
+  {
+    if (get_kind() != json_value_kind::number_unsigned_integer) return std::nullopt;
+    const deserializer<T, charT> de;
+    return std::make_from_tuple<T>(de.deserialize(std::get<0>(data_)).args);
+  }
+
+  template <class T>
+  constexpr std::optional<T> get_signed_integer() const noexcept
+  {
+    if (get_kind() != json_value_kind::number_signed_integer) return std::nullopt;
+    const deserializer<T, charT> de;
+    return std::make_from_tuple<T>(de.deserialize(std::get<0>(data_)).args);
+  }
+
+  template <class T>
+  constexpr std::optional<T> get_floating_point() const noexcept
+  {
+    if (get_kind() != json_value_kind::number_floating_point) return std::nullopt;
+    const deserializer<T, charT> de;
+    return std::make_from_tuple<T>(de.deserialize(std::get<0>(data_)).args);
   }
 
   constexpr json_value_kind get_kind() const noexcept { return kind_; }
