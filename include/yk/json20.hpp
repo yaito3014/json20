@@ -232,6 +232,18 @@ private:
   }
 
   template <class Parser>
+  static constexpr auto opt(const Parser& p) noexcept
+  {
+    return [p](std::basic_string_view<charT> str) -> parse_result {
+      if (auto res = p(str); res.match) return res;
+      return {
+          str.substr(0, 0),
+          str,
+      };
+    };
+  }
+
+  template <class Parser>
   static constexpr auto many(const Parser& p) noexcept
   {
     return [p](std::basic_string_view<charT> str) -> parse_result {
@@ -326,11 +338,18 @@ private:
         );
     const auto parse0to9 = alt(parse0, parse1to9);
 
+    const auto parse_minus = lit(YK_JSON20_WIDEN_STRING(charT, "-").get());
+    const auto parse_plus = lit(YK_JSON20_WIDEN_STRING(charT, "+").get());
+
+    const auto res = parse_minus(str);
+    const bool has_minus_sign = bool(res.match);
+    const auto int_dot_frac_e_exp = res.rest;
+
     const auto parser = alt(parse0, seq(parse1to9, many(parse0to9)));
-    if (auto res = parser(str); res.match) {
+    if (auto res = parser(int_dot_frac_e_exp); res.match) {
       return {
           basic_json{
-              json_value_kind::number_unsigned_integer,
+              has_minus_sign ? json_value_kind::number_signed_integer : json_value_kind::number_unsigned_integer,
               std::in_place_index<0>,
               res.match->begin(),
               res.match->end(),
