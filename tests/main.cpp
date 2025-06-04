@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE(visit)
 
   std::println("==begin==");
   print_visitor vis;
-  yk::json20::basic_json_parser<char>::parse(vis, "[12,34]");
+  yk::json20::basic_json_parser<char>::parse(vis, "[  ]");
   std::println("==end==");
 
   {

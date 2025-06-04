@@ -95,11 +95,11 @@ BOOST_AUTO_TEST_CASE(array)
     BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::array));
     BOOST_ASSERT(x.get_array().value().empty());
   }
-  // {
-  //   const auto x = json_parser::parse("[ ]");
-  //   BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::array));
-  //   BOOST_ASSERT(x.get_array().value().empty());
-  // }
+  {
+    const auto x = json_parser::parse("[ ]");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::array));
+    BOOST_ASSERT(x.get_array().value().empty());
+  }
   {
     const auto x = json_parser::parse("[12]");
     BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::array));

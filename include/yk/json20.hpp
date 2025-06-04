@@ -600,9 +600,9 @@ private:
 
     auto res = parser(str);
     if (res.match) {
-      //
+      return {std::basic_string_view<charT>{str.begin(), res.rest.begin()}, res.rest};
     }
-    return {std::basic_string_view<charT>{str.begin(), res.rest.begin()}, res.rest};
+    return {std::nullopt, str};
   }
 
 public:
