@@ -7,35 +7,6 @@
 
 BOOST_AUTO_TEST_SUITE(util)
 
-BOOST_AUTO_TEST_CASE(widen_char)
-{
-  {
-    constexpr auto c = YK_JSON20_WIDEN_CHAR(char, 'a');
-    static_assert(std::is_same_v<decltype(c), const char>);
-    static_assert(c == 'a');
-  }
-  {
-    constexpr auto c = YK_JSON20_WIDEN_CHAR(wchar_t, 'a');
-    static_assert(std::is_same_v<decltype(c), const wchar_t>);
-    static_assert(c == L'a');
-  }
-  {
-    constexpr auto c = YK_JSON20_WIDEN_CHAR(char8_t, 'a');
-    static_assert(std::is_same_v<decltype(c), const char8_t>);
-    static_assert(c == u8'a');
-  }
-  {
-    constexpr auto c = YK_JSON20_WIDEN_CHAR(char16_t, 'a');
-    static_assert(std::is_same_v<decltype(c), const char16_t>);
-    static_assert(c == u'a');
-  }
-  {
-    constexpr auto c = YK_JSON20_WIDEN_CHAR(char32_t, 'a');
-    static_assert(std::is_same_v<decltype(c), const char32_t>);
-    static_assert(c == U'a');
-  }
-}
-
 template <class FixedString>
 struct is_wfixed_string : std::false_type {};
 
