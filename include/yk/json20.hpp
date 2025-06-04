@@ -16,10 +16,6 @@
 #include <variant>
 #include <vector>
 
-#define YK_JSON20_WIDEN_CHAR(charT, charLiteral) \
-  ::yk::json20::detail::select_char<             \
-      charT, charLiteral, L##charLiteral, u8##charLiteral, u##charLiteral, U##charLiteral>::value
-
 #define YK_JSON20_WIDEN_STRING(charT, strLiteral) \
   ::yk::json20::detail::select_str<               \
       charT, strLiteral, L##strLiteral, u8##strLiteral, u##strLiteral, U##strLiteral>::value
@@ -29,33 +25,6 @@ namespace yk {
 namespace json20 {
 
 namespace detail {
-
-template <class charT, char Char, wchar_t WChar, char8_t Char8, char16_t Char16, char32_t Char32>
-struct select_char {};
-
-template <char Char, wchar_t WChar, char8_t Char8, char16_t Char16, char32_t Char32>
-struct select_char<char, Char, WChar, Char8, Char16, Char32> {
-  static constexpr char value = Char;
-};
-
-template <char Char, wchar_t WChar, char8_t Char8, char16_t Char16, char32_t Char32>
-struct select_char<wchar_t, Char, WChar, Char8, Char16, Char32> {
-  static constexpr wchar_t value = WChar;
-};
-template <char Char, wchar_t WChar, char8_t Char8, char16_t Char16, char32_t Char32>
-struct select_char<char8_t, Char, WChar, Char8, Char16, Char32> {
-  static constexpr char8_t value = Char8;
-};
-
-template <char Char, wchar_t WChar, char8_t Char8, char16_t Char16, char32_t Char32>
-struct select_char<char16_t, Char, WChar, Char8, Char16, Char32> {
-  static constexpr char16_t value = Char16;
-};
-
-template <char Char, wchar_t WChar, char8_t Char8, char16_t Char16, char32_t Char32>
-struct select_char<char32_t, Char, WChar, Char8, Char16, Char32> {
-  static constexpr char32_t value = Char32;
-};
 
 template <class charT, std::size_t N>
 struct basic_fixed_string {
