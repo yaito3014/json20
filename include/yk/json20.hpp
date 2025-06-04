@@ -312,10 +312,11 @@ private:
     };
   }
 
-  static constexpr auto except(std::basic_string_view<charT> literal) noexcept
+  template <class Parser>
+  static constexpr auto except(const Parser& p) noexcept
   {
-    return [literal](std::basic_string_view<charT> str) -> parse_result<> {
-      if (str.starts_with(literal))
+    return [p](std::basic_string_view<charT> str) -> parse_result<> {
+      if (auto res = p(str); res.match)
         return {std::nullopt, str};
       else
         return {str.substr(0, 1), str.substr(1)};
@@ -548,7 +549,7 @@ private:
   {
     const auto quote = YK_JSON20_WIDEN_STRING(charT, "\"");
 
-    const auto parser = seq(lit(quote.get()), many(except(quote.get())), lit(quote.get()));
+    const auto parser = seq(lit(quote.get()), many(except(lit(quote.get()))), lit(quote.get()));
 
     auto res = parser(str);
     if (res.match) {
