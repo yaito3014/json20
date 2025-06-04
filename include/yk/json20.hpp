@@ -434,6 +434,14 @@ private:
     return {std::basic_string_view<charT>{str.begin(), res.rest.begin()}, res.rest};
   }
 
+  static constexpr parse_result<> cntrl(std::basic_string_view<charT> str) noexcept
+  {
+    if (std::iscntrl(str.front(), std::locale::classic())) {
+      return {str.substr(0, 1), str.substr(1)};
+    }
+    return {std::nullopt, str};
+  }
+
   template <class Visitor>
   static constexpr parse_result<> parse_null(Visitor& vis, std::basic_string_view<charT> str) noexcept
   {
@@ -548,8 +556,10 @@ private:
   static constexpr parse_result<> parse_string(Visitor& vis, std::basic_string_view<charT> str) noexcept
   {
     const auto quote = YK_JSON20_WIDEN_STRING(charT, "\"");
+    const auto backslash = YK_JSON20_WIDEN_STRING(charT, "\\");
 
-    const auto parser = seq(lit(quote.get()), many(except(lit(quote.get()))), lit(quote.get()));
+    const auto parser =
+        seq(lit(quote.get()), many(except(alt(lit(quote.get()), lit(backslash.get()), cntrl))), lit(quote.get()));
 
     auto res = parser(str);
     if (res.match) {
