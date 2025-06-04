@@ -309,7 +309,7 @@ public:
   }
   void on_object_abort() noexcept { stack_.pop_back(); }
 
-  constexpr basic_json<charT> get() const noexcept { return std::get<basic_json<charT>>(stack_.front()); }
+  constexpr basic_json<charT> get() const noexcept { return std::get<basic_json<charT>>(stack_.back()); }
 
 private:
   struct start_tag {};
