@@ -6,6 +6,7 @@
 #include <charconv>
 #include <concepts>
 #include <functional>
+#include <locale>
 #include <map>
 #include <optional>
 #include <ranges>
