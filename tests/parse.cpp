@@ -114,6 +114,51 @@ BOOST_AUTO_TEST_CASE(string)
     BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::string));
     BOOST_ASSERT(x.get_string().value() == "foo");
   }
+  {
+    const auto x = json_parser::parse("\"\\\\\"");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::string));
+    BOOST_ASSERT(x.get_string().value() == "\\");
+  }
+  {
+    const auto x = json_parser::parse("\"\\\"\"");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::string));
+    BOOST_ASSERT(x.get_string().value() == "\"");
+  }
+  {
+    const auto x = json_parser::parse("\"\\/\"");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::string));
+    BOOST_ASSERT(x.get_string().value() == "/");
+  }
+  {
+    const auto x = json_parser::parse("\"\\/\"");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::string));
+    BOOST_ASSERT(x.get_string().value() == "/");
+  }
+  {
+    const auto x = json_parser::parse("\"\\b\"");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::string));
+    BOOST_ASSERT(x.get_string().value() == "\b");
+  }
+  {
+    const auto x = json_parser::parse("\"\\f\"");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::string));
+    BOOST_ASSERT(x.get_string().value() == "\f");
+  }
+  {
+    const auto x = json_parser::parse("\"\\n\"");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::string));
+    BOOST_ASSERT(x.get_string().value() == "\n");
+  }
+  {
+    const auto x = json_parser::parse("\"\\r\"");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::string));
+    BOOST_ASSERT(x.get_string().value() == "\r");
+  }
+  {
+    const auto x = json_parser::parse("\"\\t\"");
+    BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::string));
+    BOOST_ASSERT(x.get_string().value() == "\t");
+  }
 }
 
 BOOST_AUTO_TEST_CASE(object)
