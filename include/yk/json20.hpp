@@ -231,12 +231,12 @@ public:
   constexpr void on_array_start() noexcept { stack_.emplace_back(start_tag{}); }
   constexpr void on_array_finalize() noexcept
   {
-    auto rng = std::ranges::find_last_if(stack_, [](const auto& var) { return std::holds_alternative<start_tag>(var); });
+    auto i = std::ranges::find_if(stack_ | std::views::reverse, [](const auto& var) { return std::holds_alternative<start_tag>(var); }).base();
     std::vector<basic_json<charT>> vec;
-    for (auto&& var : rng | std::views::drop(1)) {
-      vec.emplace_back(std::get<basic_json<charT>>(std::move(var)));
+    for (auto j = i; j != stack_.end(); ++j) {
+      vec.emplace_back(std::get<basic_json<charT>>(std::move(*j)));
     }
-    stack_.erase(rng.begin(), rng.end());
+    stack_.erase(i, stack_.end());
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::array, std::in_place_index<1>, std::move(vec));
   }
   constexpr void on_array_abort() noexcept { stack_.pop_back(); }
@@ -244,12 +244,12 @@ public:
   constexpr void on_object_start() noexcept { stack_.emplace_back(start_tag{}); }
   constexpr void on_object_finalize() noexcept
   {
-    auto rng = std::ranges::find_last_if(stack_, [](const auto& var) { return std::holds_alternative<start_tag>(var); });
+    auto i = std::ranges::find_if(stack_ | std::views::reverse, [](const auto& var) { return std::holds_alternative<start_tag>(var); }).base();
     std::vector<std::pair<std::basic_string<charT>, basic_json<charT>>> vec;
-    for (std::size_t i = 1; i < rng.size(); i += 2) {
-      vec.emplace_back(std::get<basic_json<charT>>(rng[i]).as_string().value(), std::get<basic_json<charT>>(rng[i + 1]));
+    for (auto j = i; j != stack_.end(); j += 2) {
+      vec.emplace_back(std::get<basic_json<charT>>(*j).as_string().value(), std::get<basic_json<charT>>(*(j + 1)));
     }
-    stack_.erase(rng.begin(), rng.end());
+    stack_.erase(i, stack_.end());
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::object, std::in_place_index<2>, std::move(vec));
   }
   constexpr void on_object_abort() noexcept { stack_.pop_back(); }
