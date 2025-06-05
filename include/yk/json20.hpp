@@ -7,7 +7,6 @@
 #include <concepts>
 #include <functional>
 #include <locale>
-#include <map>
 #include <optional>
 #include <ranges>
 #include <stdexcept>
@@ -123,33 +122,33 @@ template <class charT>
 class basic_json {
 public:
   template <class T>
-  constexpr std::optional<T> get_unsigned_integer() const noexcept
+  constexpr std::optional<T> as_unsigned_integer() const noexcept
   {
     if (get_kind() != json_value_kind::number_unsigned_integer) return std::nullopt;
     return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
   }
 
   template <class T>
-  constexpr std::optional<T> get_signed_integer() const noexcept
+  constexpr std::optional<T> as_signed_integer() const noexcept
   {
     if (get_kind() != json_value_kind::number_signed_integer) return std::nullopt;
     return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
   }
 
   template <class T>
-  constexpr std::optional<T> get_floating_point() const noexcept
+  constexpr std::optional<T> as_floating_point() const noexcept
   {
     if (get_kind() != json_value_kind::number_floating_point) return std::nullopt;
     return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
   }
 
-  constexpr std::optional<std::vector<basic_json<charT>>> get_array() const noexcept
+  constexpr std::optional<std::vector<basic_json<charT>>> as_array() const noexcept
   {
     if (get_kind() != json_value_kind::array) return std::nullopt;
     return std::get<1>(data_);
   }
 
-  constexpr std::optional<std::basic_string<charT>> get_string() const noexcept
+  constexpr std::optional<std::basic_string<charT>> as_string() const noexcept
   {
     if (get_kind() != json_value_kind::string) return std::nullopt;
     return std::get<0>(data_);
@@ -173,9 +172,9 @@ public:
 private:
   json_value_kind kind_;
   std::variant<
-      std::basic_string<charT>,                       //
-      std::vector<basic_json>,                        //
-      std::map<std::basic_string<charT>, basic_json>  //
+      std::basic_string<charT>,                                     //
+      std::vector<basic_json>,                                      //
+      std::vector<std::pair<std::basic_string<charT>, basic_json>>  //
       >
       data_;
 };
@@ -231,12 +230,12 @@ public:
   constexpr void on_object_finalize() noexcept
   {
     auto rng = std::ranges::find_last_if(stack_, [](const auto& var) { return std::holds_alternative<start_tag>(var); });
-    std::map<std::basic_string<charT>, basic_json<charT>> map;
+    std::vector<std::pair<std::basic_string<charT>, basic_json<charT>>> vec;
     for (std::size_t i = 1; i < rng.size(); i += 2) {
-      map.emplace(std::get<basic_json<charT>>(rng[i]).get_string().value(), std::get<basic_json<charT>>(rng[i + 1]));
+      vec.emplace_back(std::get<basic_json<charT>>(rng[i]).as_string().value(), std::get<basic_json<charT>>(rng[i + 1]));
     }
     stack_.erase(rng.begin(), rng.end());
-    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::object, std::in_place_index<2>, std::move(map));
+    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::object, std::in_place_index<2>, std::move(vec));
   }
   constexpr void on_object_abort() noexcept { stack_.pop_back(); }
 
