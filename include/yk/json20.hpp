@@ -573,30 +573,30 @@ private:
     const auto quote = YK_JSON20_WIDEN_STRING(charT, "\"");
     const auto backslash = YK_JSON20_WIDEN_STRING(charT, "\\");
 
-    const auto hex = alt(
-        lit(YK_JSON20_WIDEN_STRING(charT, "0")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "1")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "2")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "3")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "4")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "5")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "6")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "7")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "8")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "9")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "A")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "B")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "C")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "D")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "E")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "F")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "a")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "b")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "c")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "d")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "e")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "f"))   //
-    );
+    // const auto hex = alt(
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "0")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "1")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "2")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "3")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "4")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "5")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "6")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "7")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "8")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "9")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "A")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "B")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "C")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "D")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "E")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "F")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "a")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "b")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "c")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "d")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "e")),  //
+    //     lit(YK_JSON20_WIDEN_STRING(charT, "f"))   //
+    // );
 
     // TODO: implement unicode escape sequence
     const auto escape_sequence = [&](std::basic_string_view<charT> s) -> parse_result<std::basic_string<charT>> {
