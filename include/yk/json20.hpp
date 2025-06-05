@@ -96,15 +96,15 @@ struct deserializer {
   static constexpr auto deserialize(std::basic_string_view<charT> str) = delete;
 };
 
-template <class T, class charT>
+template <class T>
   requires std::integral<T> || std::floating_point<T>
-struct deserializer<T, charT> {
-  static constexpr auto deserialize(std::basic_string_view<charT> str)
+struct deserializer<T, char> {
+  static constexpr auto deserialize(std::string_view str)
   {
     T value{};
     auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), value);
     if (ec != std::errc{}) throw std::invalid_argument("from_chars error");
-    return make_deserialize_result<charT>(str.begin() + (ptr - str.data()), std::move(value));
+    return make_deserialize_result<char>(str.begin() + (ptr - str.data()), std::move(value));
   }
 };
 
