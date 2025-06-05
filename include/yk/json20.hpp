@@ -409,10 +409,42 @@ private:
 
   static constexpr parse_result<> cntrl(std::basic_string_view<charT> str) noexcept
   {
-    if (std::iscntrl(str.front(), std::locale::classic())) {
-      return {str.substr(0, 1), str.substr(1)};
-    }
-    return {std::nullopt, str};
+    const auto control_characters_parser = alt(
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x00")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x01")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x02")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x03")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x04")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x05")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x06")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x07")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x08")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x09")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x0A")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x0B")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x0C")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x0D")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x0E")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x0F")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x00")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x11")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x12")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x13")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x14")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x15")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x16")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x17")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x18")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x19")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x1A")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x1B")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x1C")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x1D")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x1E")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x1F"))   //
+    );
+
+    return control_characters_parser(str);
   }
 
   template <class Visitor>
