@@ -160,6 +160,12 @@ public:
     return std::get<1>(data_)[index];
   }
 
+  constexpr std::optional<std::vector<std::pair<std::basic_string<charT>, basic_json>>> as_object() const noexcept
+  {
+    if (get_kind() != json_value_kind::object) return std::nullopt;
+    return std::get<2>(data_);
+  }
+
   constexpr std::optional<basic_json> get(std::basic_string_view<charT> key) const noexcept
   {
     if (get_kind() != json_value_kind::object) return std::nullopt;
