@@ -165,7 +165,7 @@ public:
     if (get_kind() != json_value_kind::object) return std::nullopt;
     auto& vec = std::get<2>(data_);
     auto iter = std::ranges::lower_bound(vec, key, {}, &std::pair<std::basic_string<charT>, basic_json>::first);
-    if (iter == vec.end() || iter->first != key) std::nullopt;
+    if (iter == vec.end() || iter->first != key) return std::nullopt;
     return iter->second;
   }
 
