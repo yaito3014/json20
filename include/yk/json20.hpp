@@ -298,9 +298,11 @@ public:
   };
 
 private:
-  static constexpr auto lit(std::basic_string_view<charT> literal) noexcept
-  {
-    return [literal](std::basic_string_view<charT> str) -> parse_result<> {
+  struct lit_parser {
+    std::basic_string_view<charT> literal;
+
+    constexpr auto operator()(std::basic_string_view<charT> str) const noexcept -> parse_result<>
+    {
       if (str.starts_with(literal)) {
         return {
             str.substr(0, literal.size()),
@@ -310,7 +312,9 @@ private:
         return {std::nullopt, str};
       }
     };
-  }
+  };
+
+  static constexpr auto lit(std::basic_string_view<charT> literal) noexcept { return lit_parser{literal}; }
 
   template <class Parser>
   static constexpr auto except(const Parser& p) noexcept
@@ -333,15 +337,26 @@ private:
   };
 
   template <class Parser1, class Parser2>
-  static constexpr auto alt(const Parser1& p1, const Parser2& p2) noexcept
-  {
+  struct alt_parser {
     using T = typename std::invoke_result_t<Parser1, std::basic_string_view<charT>>::value_type;
     using U = typename std::invoke_result_t<Parser2, std::basic_string_view<charT>>::value_type;
-    return [p1, p2](std::basic_string_view<charT> str) -> parse_result<typename alt_result<T, U>::type> {
+
+    [[no_unique_address]] Parser1 p1;
+    [[no_unique_address]] Parser2 p2;
+
+    constexpr auto operator()(std::basic_string_view<charT> str) const noexcept
+        -> parse_result<typename alt_result<T, U>::type>
+    {
       if (auto res1 = p1(str); res1.match) return {*res1.match, res1.rest};
       if (auto res2 = p2(str); res2.match) return {*res2.match, res2.rest};
       return {std::nullopt, str};
     };
+  };
+
+  template <class Parser1, class Parser2>
+  static constexpr auto alt(const Parser1& p1, const Parser2& p2) noexcept
+  {
+    return alt_parser{p1, p2};
   }
 
   template <class Parser1, class Parser2, class Parser3, class... Parsers>
@@ -351,11 +366,15 @@ private:
   }
 
   template <class Parser1, class Parser2>
-  static constexpr auto seq(const Parser1& p1, const Parser2& p2) noexcept
-  {
+  struct seq_parser {
     using T = typename std::invoke_result_t<Parser1, std::basic_string_view<charT>>::value_type;
     using U = typename std::invoke_result_t<Parser2, std::basic_string_view<charT>>::value_type;
-    return [p1, p2](std::basic_string_view<charT> str) -> parse_result<std::tuple<T, U>> {
+
+    [[no_unique_address]] Parser1 p1;
+    [[no_unique_address]] Parser2 p2;
+
+    constexpr auto operator()(std::basic_string_view<charT> str) const noexcept -> parse_result<std::tuple<T, U>>
+    {
       if (auto res1 = p1(str); res1.match) {
         if (auto res2 = p2(res1.rest); res2.match) {
           return {
@@ -366,6 +385,12 @@ private:
       }
       return {std::nullopt, str};
     };
+  };
+
+  template <class Parser1, class Parser2>
+  static constexpr auto seq(const Parser1& p1, const Parser2& p2) noexcept
+  {
+    return seq_parser{p1, p2};
   }
 
   template <class Parser1, class Parser2, class Parser3, class... Parsers>
