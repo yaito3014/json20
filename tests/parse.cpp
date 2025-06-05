@@ -173,4 +173,25 @@ BOOST_AUTO_TEST_CASE(object)
   }
 }
 
+BOOST_AUTO_TEST_CASE(checked_string)
+{
+  const auto f = [](yk::json20::basic_checked_string<char>) {};
+  f("null");
+  f("true");
+  f("false");
+  f("1234");
+  f("-1234");
+  f("1234e5");
+  f("1234e+5");
+  f("1234e-5");
+  f("12.34");
+  f("-12.34");
+  f("12.34e5");
+  f("12.34e+5");
+  f("12.34e-5");
+  f("\"foo\"");
+  f("{\"foo\":123}");
+  f("[123,3.14]");
+}
+
 BOOST_AUTO_TEST_SUITE_END()

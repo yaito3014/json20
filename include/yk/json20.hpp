@@ -693,6 +693,41 @@ public:
   }
 };
 
+template <class charT>
+struct basic_noop_visitor {
+  constexpr void on_null(std::basic_string_view<charT>) noexcept {}
+  constexpr void on_boolean(std::basic_string_view<charT>) noexcept {}
+  constexpr void on_number_unsigned_integer(std::basic_string_view<charT>) noexcept {}
+  constexpr void on_number_signed_integer(std::basic_string_view<charT>) noexcept {}
+  constexpr void on_number_floating_point(std::basic_string_view<charT>) noexcept {}
+  constexpr void on_string(std::basic_string_view<charT>) noexcept {}
+
+  constexpr void on_array_start() {}
+  constexpr void on_array_finalize() {}
+  constexpr void on_array_abort() {}
+
+  constexpr void on_object_start() {}
+  constexpr void on_object_finalize() {}
+  constexpr void on_object_abort() {}
+};
+
+template <class charT>
+class basic_checked_string {
+public:
+  template <class S>
+    requires std::convertible_to<S, std::basic_string_view<charT>>
+  consteval basic_checked_string(const S& str) : str_(str)
+  {
+    basic_noop_visitor<charT> vis;
+    basic_json_parser<charT>::parse(vis, str);
+  }
+
+  constexpr std::basic_string_view<charT> get() const noexcept { return str_; }
+
+private:
+  std::basic_string_view<charT> str_;
+};
+
 }  // namespace json20
 
 }  // namespace yk
