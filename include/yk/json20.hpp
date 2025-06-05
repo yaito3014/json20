@@ -183,39 +183,39 @@ private:
 template <class charT>
 class basic_json_visitor {
 public:
-  void on_null(std::basic_string_view<charT> str) noexcept
+  constexpr void on_null(std::basic_string_view<charT> str) noexcept
   {
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::null, std::in_place_index<0>, str.begin(), str.end());
   }
-  void on_boolean(std::basic_string_view<charT> str) noexcept
+  constexpr void on_boolean(std::basic_string_view<charT> str) noexcept
   {
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::boolean, std::in_place_index<0>, str.begin(), str.end());
   }
-  void on_number_unsigned_integer(std::basic_string_view<charT> str) noexcept
+  constexpr void on_number_unsigned_integer(std::basic_string_view<charT> str) noexcept
   {
     stack_.emplace_back(
         std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::number_unsigned_integer, std::in_place_index<0>, str.begin(), str.end()
     );
   }
-  void on_number_signed_integer(std::basic_string_view<charT> str) noexcept
+  constexpr void on_number_signed_integer(std::basic_string_view<charT> str) noexcept
   {
     stack_.emplace_back(
         std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::number_signed_integer, std::in_place_index<0>, str.begin(), str.end()
     );
   }
-  void on_number_floating_point(std::basic_string_view<charT> str) noexcept
+  constexpr void on_number_floating_point(std::basic_string_view<charT> str) noexcept
   {
     stack_.emplace_back(
         std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::number_floating_point, std::in_place_index<0>, str.begin(), str.end()
     );
   }
-  void on_string(std::basic_string_view<charT> str) noexcept
+  constexpr void on_string(std::basic_string_view<charT> str) noexcept
   {
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::string, std::in_place_index<0>, str.begin(), str.end());
   }
 
-  void on_array_start() noexcept { stack_.emplace_back(start_tag{}); }
-  void on_array_finalize() noexcept
+  constexpr void on_array_start() noexcept { stack_.emplace_back(start_tag{}); }
+  constexpr void on_array_finalize() noexcept
   {
     auto rng = std::ranges::find_last_if(stack_, [](const auto& var) { return std::holds_alternative<start_tag>(var); });
     std::vector<basic_json<charT>> vec;
@@ -225,10 +225,10 @@ public:
     stack_.erase(rng.begin(), rng.end());
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::array, std::in_place_index<1>, std::move(vec));
   }
-  void on_array_abort() noexcept { stack_.pop_back(); }
+  constexpr void on_array_abort() noexcept { stack_.pop_back(); }
 
-  void on_object_start() noexcept { stack_.emplace_back(start_tag{}); }
-  void on_object_finalize() noexcept
+  constexpr void on_object_start() noexcept { stack_.emplace_back(start_tag{}); }
+  constexpr void on_object_finalize() noexcept
   {
     auto rng = std::ranges::find_last_if(stack_, [](const auto& var) { return std::holds_alternative<start_tag>(var); });
     std::map<std::basic_string<charT>, basic_json<charT>> map;
@@ -238,7 +238,7 @@ public:
     stack_.erase(rng.begin(), rng.end());
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::object, std::in_place_index<2>, std::move(map));
   }
-  void on_object_abort() noexcept { stack_.pop_back(); }
+  constexpr void on_object_abort() noexcept { stack_.pop_back(); }
 
   constexpr basic_json<charT> get() const noexcept { return std::get<basic_json<charT>>(stack_.back()); }
 
