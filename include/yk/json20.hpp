@@ -125,48 +125,81 @@ template <class charT>
 class basic_json {
 public:
   template <class T>
+  constexpr T as_unsigned_integer_unchecked() const noexcept
+  {
+    return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
+  }
+
+  template <class T>
+  constexpr T as_signed_integer_unchecked() const noexcept
+  {
+    return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
+  }
+
+  template <class T>
+  constexpr T as_floating_point_unchecked() const noexcept
+  {
+    return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
+  }
+
+  constexpr const std::basic_string<charT>& as_string_unchecked() const noexcept { return std::get<0>(data_); }
+
+  constexpr const std::vector<basic_json<charT>>& as_array_unchecked() const noexcept { return std::get<1>(data_); }
+
+  constexpr const basic_json& get_unchecked(std::size_t index) const noexcept { return std::get<1>(data_)[index]; }
+
+  constexpr const std::vector<std::pair<std::basic_string<charT>, basic_json>>& as_object_unchecked() const noexcept { return std::get<2>(data_); }
+
+  constexpr const basic_json& get_unchecked(std::basic_string_view<charT> key) const noexcept
+  {
+    auto& vec = std::get<2>(data_);
+    auto iter = std::ranges::lower_bound(vec, key, {}, &std::pair<std::basic_string<charT>, basic_json>::first);
+    return iter->second;
+  }
+
+  template <class T>
   constexpr T as_unsigned_integer() const
   {
     if (get_kind() != json_value_kind::number_unsigned_integer) throw bad_json_access{};
-    return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
+    return as_unsigned_integer_unchecked<T>();
   }
 
   template <class T>
   constexpr T as_signed_integer() const
   {
     if (get_kind() != json_value_kind::number_signed_integer) throw bad_json_access{};
-    return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
+    return as_signed_integer_unchecked<T>();
   }
 
   template <class T>
   constexpr T as_floating_point() const
   {
     if (get_kind() != json_value_kind::number_floating_point) throw bad_json_access{};
-    return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
+    return as_floating_point_unchecked<T>();
   }
 
   constexpr const std::basic_string<charT>& as_string() const
   {
     if (get_kind() != json_value_kind::string) throw bad_json_access{};
-    return std::get<0>(data_);
+    return as_string_unchecked();
   }
 
   constexpr const std::vector<basic_json<charT>>& as_array() const
   {
     if (get_kind() != json_value_kind::array) throw bad_json_access{};
-    return std::get<1>(data_);
+    return as_array_unchecked();
   }
 
   constexpr const basic_json& get(std::size_t index) const
   {
     if (get_kind() != json_value_kind::array) throw bad_json_access{};
-    return std::get<1>(data_)[index];
+    return std::get<1>(data_).at(index);
   }
 
   constexpr const std::vector<std::pair<std::basic_string<charT>, basic_json>>& as_object() const
   {
     if (get_kind() != json_value_kind::object) throw bad_json_access{};
-    return std::get<2>(data_);
+    return as_object_unchecked();
   }
 
   constexpr const basic_json& get(std::basic_string_view<charT> key) const
@@ -177,7 +210,7 @@ public:
     if (iter == vec.end() || iter->first != key) throw bad_json_access{};
     return iter->second;
   }
-  
+
   template <class T>
   constexpr std::optional<T> try_as_unsigned_integer() const noexcept
   {
@@ -217,7 +250,7 @@ public:
     return std::get<1>(data_)[index];
   }
 
-  constexpr std::optionaL<std::vector<std::pair<std::basic_string<charT>, basic_json>>> try_as_object() const noexcept
+  constexpr std::optional<std::vector<std::pair<std::basic_string<charT>, basic_json>>> try_as_object() const noexcept
   {
     if (get_kind() != json_value_kind::object) return std::nullopt;
     return std::get<2>(data_);
