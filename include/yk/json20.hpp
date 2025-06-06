@@ -177,6 +177,60 @@ public:
     if (iter == vec.end() || iter->first != key) throw bad_json_access{};
     return iter->second;
   }
+  
+  template <class T>
+  constexpr std::optional<T> try_as_unsigned_integer() const noexcept
+  {
+    if (get_kind() != json_value_kind::number_unsigned_integer) return std::nullopt;
+    return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
+  }
+
+  template <class T>
+  constexpr std::optional<T> try_as_signed_integer() const noexcept
+  {
+    if (get_kind() != json_value_kind::number_signed_integer) return std::nullopt;
+    return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
+  }
+
+  template <class T>
+  constexpr std::optional<T> try_as_floating_point() const noexcept
+  {
+    if (get_kind() != json_value_kind::number_floating_point) return std::nullopt;
+    return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
+  }
+
+  constexpr std::optional<std::basic_string<charT>> try_as_string() const noexcept
+  {
+    if (get_kind() != json_value_kind::string) return std::nullopt;
+    return std::get<0>(data_);
+  }
+
+  constexpr std::optional<std::vector<basic_json<charT>>> try_as_array() const noexcept
+  {
+    if (get_kind() != json_value_kind::array) return std::nullopt;
+    return std::get<1>(data_);
+  }
+
+  constexpr std::optional<basic_json> try_get(std::size_t index) const noexcept
+  {
+    if (get_kind() != json_value_kind::array) return std::nullopt;
+    return std::get<1>(data_)[index];
+  }
+
+  constexpr std::optionaL<std::vector<std::pair<std::basic_string<charT>, basic_json>>> try_as_object() const noexcept
+  {
+    if (get_kind() != json_value_kind::object) return std::nullopt;
+    return std::get<2>(data_);
+  }
+
+  constexpr std::optional<basic_json> try_get(std::basic_string_view<charT> key) const noexcept
+  {
+    if (get_kind() != json_value_kind::object) return std::nullopt;
+    auto& vec = std::get<2>(data_);
+    auto iter = std::ranges::lower_bound(vec, key, {}, &std::pair<std::basic_string<charT>, basic_json>::first);
+    if (iter == vec.end() || iter->first != key) return std::nullopt;
+    return iter->second;
+  }
 
   constexpr json_value_kind get_kind() const noexcept { return kind_; }
 
