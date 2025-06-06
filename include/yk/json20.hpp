@@ -247,7 +247,9 @@ public:
   constexpr std::optional<basic_json> try_get(std::size_t index) const noexcept
   {
     if (get_kind() != json_value_kind::array) return std::nullopt;
-    return std::get<1>(data_)[index];
+    auto& vec = std::get<1>(data_);
+    if (index >= vec.size()) return std::nullopt;
+    return vec[index];
   }
 
   constexpr std::optional<std::vector<std::pair<std::basic_string<charT>, basic_json>>> try_as_object() const noexcept
