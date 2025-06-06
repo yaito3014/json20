@@ -5,6 +5,7 @@
 #include <array>
 #include <charconv>
 #include <concepts>
+#include <exception>
 #include <functional>
 #include <locale>
 #include <optional>
@@ -118,60 +119,62 @@ enum class json_value_kind {
   object,
 };
 
+class bad_json_access : public std::exception {};
+
 template <class charT>
 class basic_json {
 public:
   template <class T>
-  constexpr std::optional<T> as_unsigned_integer() const noexcept
+  constexpr T as_unsigned_integer() const
   {
-    if (get_kind() != json_value_kind::number_unsigned_integer) return std::nullopt;
+    if (get_kind() != json_value_kind::number_unsigned_integer) throw bad_json_access{};
     return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
   }
 
   template <class T>
-  constexpr std::optional<T> as_signed_integer() const noexcept
+  constexpr T as_signed_integer() const
   {
-    if (get_kind() != json_value_kind::number_signed_integer) return std::nullopt;
+    if (get_kind() != json_value_kind::number_signed_integer) throw bad_json_access{};
     return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
   }
 
   template <class T>
-  constexpr std::optional<T> as_floating_point() const noexcept
+  constexpr T as_floating_point() const
   {
-    if (get_kind() != json_value_kind::number_floating_point) return std::nullopt;
+    if (get_kind() != json_value_kind::number_floating_point) throw bad_json_access{};
     return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
   }
 
-  constexpr std::optional<std::basic_string<charT>> as_string() const noexcept
+  constexpr const std::basic_string<charT>& as_string() const
   {
-    if (get_kind() != json_value_kind::string) return std::nullopt;
+    if (get_kind() != json_value_kind::string) throw bad_json_access{};
     return std::get<0>(data_);
   }
 
-  constexpr std::optional<std::vector<basic_json<charT>>> as_array() const noexcept
+  constexpr const std::vector<basic_json<charT>>& as_array() const
   {
-    if (get_kind() != json_value_kind::array) return std::nullopt;
+    if (get_kind() != json_value_kind::array) throw bad_json_access{};
     return std::get<1>(data_);
   }
 
-  constexpr std::optional<basic_json> get(std::size_t index) const noexcept
+  constexpr const basic_json& get(std::size_t index) const
   {
-    if (get_kind() != json_value_kind::array) return std::nullopt;
+    if (get_kind() != json_value_kind::array) throw bad_json_access{};
     return std::get<1>(data_)[index];
   }
 
-  constexpr std::optional<std::vector<std::pair<std::basic_string<charT>, basic_json>>> as_object() const noexcept
+  constexpr const std::vector<std::pair<std::basic_string<charT>, basic_json>>& as_object() const
   {
-    if (get_kind() != json_value_kind::object) return std::nullopt;
+    if (get_kind() != json_value_kind::object) throw bad_json_access{};
     return std::get<2>(data_);
   }
 
-  constexpr std::optional<basic_json> get(std::basic_string_view<charT> key) const noexcept
+  constexpr const basic_json& get(std::basic_string_view<charT> key) const
   {
-    if (get_kind() != json_value_kind::object) return std::nullopt;
+    if (get_kind() != json_value_kind::object) throw bad_json_access{};
     auto& vec = std::get<2>(data_);
     auto iter = std::ranges::lower_bound(vec, key, {}, &std::pair<std::basic_string<charT>, basic_json>::first);
-    if (iter == vec.end() || iter->first != key) return std::nullopt;
+    if (iter == vec.end() || iter->first != key) throw bad_json_access{};
     return iter->second;
   }
 
@@ -253,7 +256,7 @@ public:
     auto i = std::ranges::find_if(stack_ | std::views::reverse, [](const auto& var) { return std::holds_alternative<start_tag>(var); }).base();
     std::vector<std::pair<std::basic_string<charT>, basic_json<charT>>> vec;
     for (auto j = i; j != stack_.end(); j += 2) {
-      vec.emplace_back(std::get<basic_json<charT>>(*j).as_string().value(), std::get<basic_json<charT>>(*(j + 1)));
+      vec.emplace_back(std::get<basic_json<charT>>(*j).as_string(), std::get<basic_json<charT>>(*(j + 1)));
     }
     stack_.erase(i, stack_.end());
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::object, std::in_place_index<2>, std::move(vec));
