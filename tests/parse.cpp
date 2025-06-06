@@ -103,7 +103,7 @@ BOOST_AUTO_TEST_CASE(array)
   {
     const auto x = json_parser::parse("[12]");
     BOOST_ASSERT((x.get_kind() == yk::json20::json_value_kind::array));
-    BOOST_ASSERT(x.get(0).as_unsigned_integer<unsigned>() == 12);
+    BOOST_ASSERT(x.at(0).as_unsigned_integer<unsigned>() == 12);
   }
 }
 
@@ -170,7 +170,7 @@ BOOST_AUTO_TEST_CASE(object)
   {
     const auto x = json_parser::parse("{\"foo\":1234}");
     BOOST_TEST((x.get_kind() == yk::json20::json_value_kind::object));
-    BOOST_TEST(x.get("foo").as_unsigned_integer<unsigned>() == 1234);
+    BOOST_TEST(x.at("foo").as_unsigned_integer<unsigned>() == 1234);
   }
 }
 
