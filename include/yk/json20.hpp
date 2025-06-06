@@ -334,7 +334,7 @@ public:
     for (auto j = i; j != stack_.end(); ++j) {
       vec.emplace_back(std::get<basic_json<charT>>(std::move(*j)));
     }
-    stack_.erase(i, stack_.end());
+    stack_.erase(i - 1, stack_.end());
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::array, std::in_place_index<1>, std::move(vec));
   }
   constexpr void on_array_abort() noexcept { stack_.pop_back(); }
@@ -347,7 +347,7 @@ public:
     for (auto j = i; j != stack_.end(); j += 2) {
       vec.emplace_back(std::get<basic_json<charT>>(*j).as_string(), std::get<basic_json<charT>>(*(j + 1)));
     }
-    stack_.erase(i, stack_.end());
+    stack_.erase(i - 1, stack_.end());
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::object, std::in_place_index<2>, std::move(vec));
   }
   constexpr void on_object_abort() noexcept { stack_.pop_back(); }
