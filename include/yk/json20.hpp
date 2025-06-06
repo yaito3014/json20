@@ -207,7 +207,7 @@ public:
     if (get_kind() != json_value_kind::object) throw bad_json_access{};
     auto& vec = std::get<2>(data_);
     auto iter = std::ranges::lower_bound(vec, key, {}, &std::pair<std::basic_string<charT>, basic_json>::first);
-    if (iter == vec.end() || iter->first != key) throw bad_json_access{};
+    if (iter == vec.end() || iter->first != key) throw std::out_of_range{"json has not such key"};
     return iter->second;
   }
 
