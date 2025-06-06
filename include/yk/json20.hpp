@@ -329,9 +329,9 @@ public:
   constexpr void on_array_start() noexcept { stack_.emplace_back(start_tag{}); }
   constexpr void on_array_finalize() noexcept
   {
-    auto i = std::ranges::find_if(stack_ | std::views::reverse, [](const auto& var) { return std::holds_alternative<start_tag>(var); }).base() - 1;
+    auto i = std::ranges::find_if(stack_ | std::views::reverse, [](const auto& var) { return std::holds_alternative<start_tag>(var); }).base();
     std::vector<basic_json<charT>> vec;
-    for (auto j = i + 1; j != stack_.end(); ++j) {
+    for (auto j = i; j != stack_.end(); ++j) {
       vec.emplace_back(std::get<basic_json<charT>>(std::move(*j)));
     }
     stack_.erase(i, stack_.end());
@@ -342,11 +342,10 @@ public:
   constexpr void on_object_start() noexcept { stack_.emplace_back(start_tag{}); }
   constexpr void on_object_finalize() noexcept
   {
-    auto i = std::ranges::find_if(stack_ | std::views::reverse, [](const auto& var) { return std::holds_alternative<start_tag>(var); }).base() - 1;
+    auto i = std::ranges::find_if(stack_ | std::views::reverse, [](const auto& var) { return std::holds_alternative<start_tag>(var); }).base();
     std::vector<std::pair<std::basic_string<charT>, basic_json<charT>>> vec;
-    for (auto j = i + 1; j != stack_.end(); ++j) {
+    for (auto j = i; j != stack_.end(); j += 2) {
       vec.emplace_back(std::get<basic_json<charT>>(*j).as_string(), std::get<basic_json<charT>>(*(j + 1)));
-      if (++j == stack_.end()) break;
     }
     stack_.erase(i, stack_.end());
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::object, std::in_place_index<2>, std::move(vec));
