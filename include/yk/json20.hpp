@@ -810,7 +810,7 @@ public:
     if (auto res = parse_value(vis, str)) return;
     throw std::invalid_argument("invalid JSON");
   }
-  
+
   template <class Visitor>
   static constexpr bool try_parse(Visitor& vis, std::basic_string_view<charT> str) noexcept
   {
@@ -828,13 +828,13 @@ struct basic_noop_visitor {
   constexpr void on_number_floating_point(std::basic_string_view<charT>) noexcept {}
   constexpr void on_string(std::basic_string_view<charT>) noexcept {}
 
-  constexpr void on_array_start() {}
-  constexpr void on_array_finalize() {}
-  constexpr void on_array_abort() {}
+  constexpr void on_array_start() noexcept {}
+  constexpr void on_array_finalize() noexcept {}
+  constexpr void on_array_abort() noexcept {}
 
-  constexpr void on_object_start() {}
-  constexpr void on_object_finalize() {}
-  constexpr void on_object_abort() {}
+  constexpr void on_object_start() noexcept {}
+  constexpr void on_object_finalize() noexcept {}
+  constexpr void on_object_abort() noexcept {}
 };
 
 template <class charT>
