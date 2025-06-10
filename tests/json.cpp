@@ -75,6 +75,15 @@ BOOST_AUTO_TEST_CASE(assignment)
   BOOST_TEST(a.at("bar").as_floating_point<double>() == 3.14);
 }
 
+BOOST_AUTO_TEST_CASE(subscript)
+{
+  json a = json::array({});
+  a[0] = 42;
+  BOOST_TEST(a.at(0).as_signed_integer<signed>() == 42);
+  a[1]["foo"] = 42;
+  BOOST_TEST(a.at(0).at("foo").as_signed_integer<signed>() == 42);
+}
+
 BOOST_AUTO_TEST_CASE(insert)
 {
   json a;

@@ -290,6 +290,23 @@ public:
     return iter->second;
   }
 
+  constexpr basic_json& operator[](std::size_t idx)
+  {
+    if (get_kind() != json_value_kind::array) throw bad_json_access{};
+    auto& vec = std::get<1>(data_);
+    if (idx >= vec.size()) vec.resize(idx + 1);
+    return vec[idx];
+  }
+
+  constexpr basic_json& operator[](std::basic_string_view<charT> key)
+  {
+    if (get_kind() != json_value_kind::object) throw bad_json_access{};
+    auto& vec = std::get<2>(data_);
+    auto iter = std::ranges::lower_bound(vec, key, {}, &std::pair<std::basic_string<charT>, basic_json>::first);
+    if (iter != vec.end() && iter->first == key) return iter->second;
+    return vec.emplace(iter, key, basic_json{})->second;
+  }
+
   constexpr json_value_kind get_kind() const noexcept { return kind_; }
 
   constexpr bool insert(std::basic_string_view<charT> key, const basic_json& json)
