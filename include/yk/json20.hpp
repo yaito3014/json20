@@ -797,11 +797,25 @@ public:
     throw std::invalid_argument("invalid JSON");
   }
 
+  static constexpr std::optional<basic_json<charT>> try_parse(std::basic_string_view<charT> str) noexcept
+  {
+    basic_json_visitor<charT> vis;
+    if (auto res = parse_value(vis, str)) return vis.get();
+    return std::nullopt;
+  }
+
   template <class Visitor>
   static constexpr void parse(Visitor& vis, std::basic_string_view<charT> str)
   {
     if (auto res = parse_value(vis, str)) return;
     throw std::invalid_argument("invalid JSON");
+  }
+  
+  template <class Visitor>
+  static constexpr bool try_parse(Visitor& vis, std::basic_string_view<charT> str) noexcept
+  {
+    if (auto res = parse_value(vis, str)) return true;
+    return false;
   }
 };
 
