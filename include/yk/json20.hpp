@@ -323,6 +323,16 @@ public:
   {
   }
 
+  template <std::signed_integral Int>
+  constexpr basic_json(Int x) : kind_(json_value_kind::number_signed_integer), data_(std::in_place_index<0>, serializer<Int, charT>::serialize(x))
+  {
+  }
+
+  template <std::floating_point Float>
+  constexpr basic_json(Float x) : kind_(json_value_kind::number_floating_point), data_(std::in_place_index<0>, serializer<Float, charT>::serialize(x))
+  {
+  }
+
   template <class... Args>
   constexpr basic_json(private_construct_t, json_value_kind kind, Args&&... args) : kind_(kind), data_(std::forward<Args>(args)...)
   {
