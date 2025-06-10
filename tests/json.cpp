@@ -25,6 +25,10 @@ BOOST_AUTO_TEST_CASE(ctor)
     BOOST_TEST(a.as_floating_point<double>() == 3.14);
   }
   {
+    json a("foo");
+    BOOST_TEST(a.as_string() == "foo");
+  }
+  {
     json a{42, 3.14, {{"foo", 42}}};
     BOOST_TEST(a.at(0).as_signed_integer<signed>() == 42);
     BOOST_TEST(a.at(1).as_floating_point<double>() == 3.14);
@@ -47,6 +51,8 @@ BOOST_AUTO_TEST_CASE(assignment)
   BOOST_TEST(a.as_signed_integer<signed>() == 42);
   a = 3.14;
   BOOST_TEST(a.as_floating_point<double>() == 3.14);
+  a = "foo";
+  BOOST_TEST(a.as_string() == "foo");
   a = {42, 3.14, {{"foo", 42}}};
   BOOST_TEST(a.at(0).as_signed_integer<signed>() == 42);
   BOOST_TEST(a.at(1).as_floating_point<double>() == 3.14);

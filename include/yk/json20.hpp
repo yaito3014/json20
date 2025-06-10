@@ -334,6 +334,8 @@ public:
   {
   }
 
+  constexpr basic_json(std::basic_string_view<charT> str) : kind_(json_value_kind::string), data_(std::in_place_index<0>, str) {}
+
   constexpr basic_json(std::initializer_list<basic_json> il) : kind_(json_value_kind::array), data_(std::in_place_index<1>, il) {}
 
   constexpr basic_json(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il)
@@ -363,6 +365,13 @@ public:
   {
     kind_ = json_value_kind::number_floating_point;
     data_.template emplace<0>(serializer<Float, charT>::serialize(x));
+    return *this;
+  }
+
+  constexpr basic_json& operator=(std::basic_string_view<charT> str)
+  {
+    kind_ = json_value_kind::string;
+    data_.template emplace<0>(str);
     return *this;
   }
 
