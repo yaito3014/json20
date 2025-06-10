@@ -190,16 +190,16 @@ public:
     return as_array_unchecked();
   }
 
-  constexpr const basic_json& at(std::size_t index) const
-  {
-    if (get_kind() != json_value_kind::array) throw bad_json_access{};
-    return std::get<1>(data_).at(index);
-  }
-
   constexpr const std::vector<std::pair<std::basic_string<charT>, basic_json>>& as_object() const
   {
     if (get_kind() != json_value_kind::object) throw bad_json_access{};
     return as_object_unchecked();
+  }
+
+  constexpr const basic_json& at(std::size_t index) const
+  {
+    if (get_kind() != json_value_kind::array) throw bad_json_access{};
+    return std::get<1>(data_).at(index);
   }
 
   constexpr const basic_json& at(std::basic_string_view<charT> key) const
@@ -244,18 +244,18 @@ public:
     return std::get<1>(data_);
   }
 
+  constexpr std::optional<std::vector<std::pair<std::basic_string<charT>, basic_json>>> try_as_object() const noexcept
+  {
+    if (get_kind() != json_value_kind::object) return std::nullopt;
+    return std::get<2>(data_);
+  }
+
   constexpr std::optional<basic_json> try_at(std::size_t index) const noexcept
   {
     if (get_kind() != json_value_kind::array) return std::nullopt;
     auto& vec = std::get<1>(data_);
     if (index >= vec.size()) return std::nullopt;
     return vec[index];
-  }
-
-  constexpr std::optional<std::vector<std::pair<std::basic_string<charT>, basic_json>>> try_as_object() const noexcept
-  {
-    if (get_kind() != json_value_kind::object) return std::nullopt;
-    return std::get<2>(data_);
   }
 
   constexpr std::optional<basic_json> try_at(std::basic_string_view<charT> key) const noexcept
