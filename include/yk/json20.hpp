@@ -7,6 +7,7 @@
 #include <concepts>
 #include <exception>
 #include <functional>
+#include <limits>
 #include <locale>
 #include <optional>
 #include <ranges>
@@ -105,6 +106,23 @@ struct deserializer<T, char> {
     auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), value);
     if (ec != std::errc{}) throw std::invalid_argument("from_chars error");
     return make_deserialize_result<char>(str.begin() + (ptr - str.data()), std::move(value));
+  }
+};
+
+template <class T, class charT = char>
+struct serializer {
+  static constexpr std::basic_string<charT> serialize(const T& x) = delete;
+};
+
+template <class T>
+  requires std::integral<T> || std::floating_point<T>
+struct serializer<T, char> {
+  static constexpr std::string serialize(const T& x)
+  {
+    char buf[std::numeric_limits<T>::digits10 + 1];
+    auto [ptr, ec] = std::to_chars(std::begin(buf), std::end(buf), x);
+    if (ec != std::errc{}) throw std::runtime_error("to_chars error");
+    return std::string(buf);
   }
 };
 
@@ -299,6 +317,11 @@ public:
   friend class basic_json_visitor;
 
   constexpr basic_json() : kind_(json_value_kind::object), data_(std::in_place_index<2>) {}
+
+  template <std::unsigned_integral UInt>
+  constexpr basic_json(UInt x) : kind_(json_value_kind::number_unsigned_integer), data_(std::in_place_index<0>, serializer<UInt, charT>::serialize(x))
+  {
+  }
 
   template <class... Args>
   constexpr basic_json(private_construct_t, json_value_kind kind, Args&&... args) : kind_(kind), data_(std::forward<Args>(args)...)
