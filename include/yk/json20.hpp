@@ -401,6 +401,10 @@ public:
   {
   }
 
+  static constexpr basic_json array(std::initializer_list<basic_json> il) { return basic_json(std::move(il)); }
+
+  static constexpr basic_json object(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il) { return basic_json(std::move(il)); }
+
 private:
   json_value_kind kind_;
   std::variant<
