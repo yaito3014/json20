@@ -88,7 +88,7 @@ struct deserialize_result {
 template <class charT, class... Args>
 constexpr auto make_deserialize_result(typename std::basic_string_view<charT>::iterator it, Args&&... args) noexcept
 {
-  return deserialize_result<charT, std::tuple<Args...>>{it, std::forward_as_tuple(std::forward<Args>(args)...)};
+  return deserialize_result<charT, std::tuple<std::decay_t<Args>...>>{it, std::forward_as_tuple(std::forward<Args>(args)...)};
 }
 
 template <class T, class charT = char>
