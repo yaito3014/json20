@@ -366,6 +366,13 @@ public:
     return *this;
   }
 
+  constexpr basic_json& operator=(std::initializer_list<basic_json> il)
+  {
+    kind_ = json_value_kind::array;
+    data_.template emplace<1>(il);
+    return *this;
+  }
+
   constexpr basic_json& operator=(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il)
   {
     kind_ = json_value_kind::object;
