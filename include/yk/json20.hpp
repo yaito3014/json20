@@ -277,6 +277,8 @@ public:
   template <class charT2>
   friend class basic_json_visitor;
 
+  constexpr basic_json() : kind_(json_value_kind::object), data_(std::in_place_index<2>) {}
+
   template <class... Args>
   constexpr basic_json(private_construct_t, json_value_kind kind, Args&&... args) : kind_(kind), data_(std::forward<Args>(args)...)
   {
