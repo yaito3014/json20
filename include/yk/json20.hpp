@@ -142,6 +142,10 @@ class bad_json_access : public std::exception {};
 
 template <class charT>
 class basic_json {
+private:
+  struct private_construct_t {};
+  static inline constexpr private_construct_t private_construct{};
+
 public:
   template <class T>
   constexpr T as_unsigned_integer_unchecked() const noexcept
@@ -308,10 +312,6 @@ public:
     vec.emplace(iter, std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(std::forward<Args>(args)...));
     return true;
   }
-
-private:
-  struct private_construct_t {};
-  static inline constexpr private_construct_t private_construct{};
 
 public:
   template <class charT2>
