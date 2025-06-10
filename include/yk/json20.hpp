@@ -279,6 +279,17 @@ public:
     return true;
   }
 
+  template <class... Args>
+  constexpr bool emplace(std::basic_string_view<charT> key, Args&&... args)
+  {
+    if (get_kind() != json_value_kind::object) throw bad_json_access{};
+    auto& vec = std::get<2>(data_);
+    auto iter = std::ranges::lower_bound(vec, key, {}, &std::pair<std::basic_string<charT>, basic_json>::first);
+    if (iter != vec.end() && iter->first == key) return false;
+    vec.emplace(iter, std::piecewise_construct, std::forward_as_tuple(key), std::forward_as_tuple(std::forward<Args>(args)...));
+    return true;
+  }
+
 private:
   struct private_construct_t {};
   static inline constexpr private_construct_t private_construct{};

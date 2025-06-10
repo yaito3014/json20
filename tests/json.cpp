@@ -13,4 +13,11 @@ BOOST_AUTO_TEST_CASE(insert)
   BOOST_TEST(a.at("foo").as_object().empty());
 }
 
+BOOST_AUTO_TEST_CASE(emplace)
+{
+  json a;
+  a.emplace("foo");
+  BOOST_TEST(a.at("foo").as_object().empty());
+}
+
 BOOST_AUTO_TEST_SUITE_END()
