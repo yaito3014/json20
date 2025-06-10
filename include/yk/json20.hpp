@@ -403,6 +403,7 @@ public:
     for (auto j = i; j != stack_.end(); j += 2) {
       vec.emplace_back(std::get<basic_json<charT>>(*j).as_string(), std::get<basic_json<charT>>(*(j + 1)));
     }
+    std::ranges::sort(vec, {}, &std::pair<std::basic_string<charT>, basic_json>::first);
     stack_.erase(i - 1, stack_.end());
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::object, std::in_place_index<2>, std::move(vec));
   }
