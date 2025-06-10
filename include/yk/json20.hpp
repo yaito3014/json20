@@ -334,6 +334,8 @@ public:
   {
   }
 
+  constexpr basic_json(std::initializer_list<basic_json> il) : kind_(json_value_kind::array), data_(std::in_place_index<1>, il) {}
+
   constexpr basic_json(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il)
       : kind_(json_value_kind::object), data_(std::in_place_index<2>, il)
   {
