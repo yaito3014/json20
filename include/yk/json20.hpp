@@ -334,7 +334,11 @@ public:
   {
   }
 
-  constexpr basic_json(std::basic_string_view<charT> str) : kind_(json_value_kind::string), data_(std::in_place_index<0>, str) {}
+  template <class S>
+    requires std::is_convertible_v<const S&, std::basic_string_view<charT>>
+  constexpr basic_json(const S& str) : kind_(json_value_kind::string), data_(std::in_place_index<0>, str)
+  {
+  }
 
   constexpr basic_json(std::initializer_list<basic_json> il) : kind_(json_value_kind::array), data_(std::in_place_index<1>, il) {}
 
@@ -368,7 +372,9 @@ public:
     return *this;
   }
 
-  constexpr basic_json& operator=(std::basic_string_view<charT> str)
+  template <class S>
+    requires std::is_convertible_v<const S&, std::basic_string_view<charT>>
+  constexpr basic_json& operator=(const S& str)
   {
     kind_ = json_value_kind::string;
     data_.template emplace<0>(str);
