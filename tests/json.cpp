@@ -24,6 +24,11 @@ BOOST_AUTO_TEST_CASE(ctor)
     json a(3.14);
     BOOST_TEST(a.as_floating_point<double>() == 3.14);
   }
+  {
+    json a{{"foo", 42}, {"bar", 3.14}};
+    BOOST_TEST(a.at("foo").as_signed_integer<signed>() == 42);
+    BOOST_TEST(a.at("bar").as_floating_point<double>() == 3.14);
+  }
 }
 
 BOOST_AUTO_TEST_CASE(insert)

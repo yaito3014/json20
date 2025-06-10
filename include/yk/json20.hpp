@@ -7,6 +7,7 @@
 #include <concepts>
 #include <exception>
 #include <functional>
+#include <initializer_list>
 #include <limits>
 #include <locale>
 #include <optional>
@@ -333,6 +334,12 @@ public:
   {
   }
 
+  constexpr basic_json(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il)
+      : kind_(json_value_kind::object), data_(std::in_place_index<2>, il)
+  {
+    std::ranges::sort(std::get<2>(data_), {}, &std::pair<std::basic_string<charT>, basic_json>::first);
+  }
+
   template <class... Args>
   constexpr basic_json(private_construct_t, json_value_kind kind, Args&&... args) : kind_(kind), data_(std::forward<Args>(args)...)
   {
@@ -403,7 +410,7 @@ public:
     for (auto j = i; j != stack_.end(); j += 2) {
       vec.emplace_back(std::get<basic_json<charT>>(*j).as_string(), std::get<basic_json<charT>>(*(j + 1)));
     }
-    std::ranges::sort(vec, {}, &std::pair<std::basic_string<charT>, basic_json>::first);
+    std::ranges::sort(vec, {}, &std::pair<std::basic_string<charT>, basic_json<charT>>::first);
     stack_.erase(i - 1, stack_.end());
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::object, std::in_place_index<2>, std::move(vec));
   }
