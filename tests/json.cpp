@@ -1,0 +1,16 @@
+#include <yk/json20.hpp>
+
+#include <boost/test/unit_test.hpp>
+
+BOOST_AUTO_TEST_SUITE(json)
+
+using json = yk::json20::basic_json<char>;
+
+BOOST_AUTO_TEST_CASE(insert)
+{
+  json a;
+  a.insert("foo", json{});
+  BOOST_TEST(a.at("foo").as_object().empty());
+}
+
+BOOST_AUTO_TEST_SUITE_END()

@@ -1,4 +1,4 @@
-add_executable(yk_json20_test main.cpp util.cpp parse.cpp)
+add_executable(yk_json20_test main.cpp util.cpp parse.cpp json.cpp)
 
 target_compile_features(yk_json20_test PRIVATE cxx_std_23)
 

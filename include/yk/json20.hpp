@@ -269,6 +269,16 @@ public:
 
   constexpr json_value_kind get_kind() const noexcept { return kind_; }
 
+  constexpr bool insert(std::basic_string_view<charT> key, const basic_json& json)
+  {
+    if (get_kind() != json_value_kind::object) throw bad_json_access{};
+    auto& vec = std::get<2>(data_);
+    auto iter = std::ranges::lower_bound(vec, key, {}, &std::pair<std::basic_string<charT>, basic_json>::first);
+    if (iter != vec.end() && iter->first == key) return false;
+    vec.emplace(iter, key, json);
+    return true;
+  }
+
 private:
   struct private_construct_t {};
   static inline constexpr private_construct_t private_construct{};
