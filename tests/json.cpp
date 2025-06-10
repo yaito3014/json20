@@ -31,6 +31,20 @@ BOOST_AUTO_TEST_CASE(ctor)
   }
 }
 
+BOOST_AUTO_TEST_CASE(assignment)
+{
+  json a;
+  BOOST_TEST(a.as_object().empty());
+  a = 42u;
+  BOOST_TEST(a.as_unsigned_integer<unsigned>() == 42u);
+  a = 42;
+  BOOST_TEST(a.as_signed_integer<signed>() == 42);
+  a = 3.14;
+  BOOST_TEST(a.as_floating_point<double>() == 3.14);
+  a = {};
+  BOOST_TEST(a.as_object().empty());
+}
+
 BOOST_AUTO_TEST_CASE(insert)
 {
   json a;

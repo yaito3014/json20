@@ -340,6 +340,38 @@ public:
     std::ranges::sort(std::get<2>(data_), {}, &std::pair<std::basic_string<charT>, basic_json>::first);
   }
 
+  template <std::unsigned_integral UInt>
+  constexpr basic_json& operator=(UInt x)
+  {
+    kind_ = json_value_kind::number_unsigned_integer;
+    data_.template emplace<0>(serializer<UInt, charT>::serialize(x));
+    return *this;
+  }
+
+  template <std::signed_integral Int>
+  constexpr basic_json& operator=(Int x)
+  {
+    kind_ = json_value_kind::number_signed_integer;
+    data_.template emplace<0>(serializer<Int, charT>::serialize(x));
+    return *this;
+  }
+
+  template <std::floating_point Float>
+  constexpr basic_json& operator=(Float x)
+  {
+    kind_ = json_value_kind::number_floating_point;
+    data_.template emplace<0>(serializer<Float, charT>::serialize(x));
+    return *this;
+  }
+
+  constexpr basic_json& operator=(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il)
+  {
+    kind_ = json_value_kind::object;
+    data_.template emplace<2>(il);
+    std::ranges::sort(std::get<2>(data_), {}, &std::pair<std::basic_string<charT>, basic_json>::first);
+    return *this;
+  }
+
   template <class... Args>
   constexpr basic_json(private_construct_t, json_value_kind kind, Args&&... args) : kind_(kind), data_(std::forward<Args>(args)...)
   {
