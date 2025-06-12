@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE(subscript)
   a[0] = 42;
   BOOST_TEST(a.at(0).as_signed_integer<signed>() == 42);
   a[1]["foo"] = 42;
-  BOOST_TEST(a.at(0).at("foo").as_signed_integer<signed>() == 42);
+  BOOST_TEST(a.at(1).at("foo").as_signed_integer<signed>() == 42);
 }
 
 BOOST_AUTO_TEST_CASE(insert)
