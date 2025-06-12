@@ -444,6 +444,12 @@ private:
       data_;
 };
 
+using json = basic_json<char>;
+using wjson = basic_json<wchar_t>;
+using u8json = basic_json<char8_t>;
+using u16json = basic_json<char16_t>;
+using u32json = basic_json<char32_t>;
+
 template <class charT>
 class basic_json_visitor {
 public:
@@ -523,6 +529,12 @@ private:
   struct start_tag {};
   std::vector<std::variant<start_tag, basic_json<charT>>> stack_;
 };
+
+using json_visitor = basic_json_visitor<char>;
+using wjson_visitor = basic_json_visitor<wchar_t>;
+using u8json_visitor = basic_json_visitor<char8_t>;
+using u16json_visitor = basic_json_visitor<char16_t>;
+using u32json_visitor = basic_json_visitor<char32_t>;
 
 template <class charT>
 class basic_json_parser {
@@ -984,6 +996,12 @@ public:
   }
 };
 
+using json_parser = basic_json_parser<char>;
+using wjson_parser = basic_json_parser<wchar_t>;
+using u8json_parser = basic_json_parser<char8_t>;
+using u16json_parser = basic_json_parser<char16_t>;
+using u32json_parser = basic_json_parser<char32_t>;
+
 template <class charT>
 struct basic_noop_visitor {
   constexpr void on_null(std::basic_string_view<charT>) noexcept {}
@@ -1018,6 +1036,12 @@ public:
 private:
   std::basic_string_view<charT> str_;
 };
+
+using checked_string = basic_checked_string<char>;
+using wchecked_string = basic_checked_string<wchar_t>;
+using u8checked_string = basic_checked_string<char8_t>;
+using u16checked_string = basic_checked_string<char16_t>;
+using u32checked_string = basic_checked_string<char32_t>;
 
 }  // namespace json20
 
