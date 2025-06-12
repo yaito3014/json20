@@ -98,4 +98,13 @@ BOOST_AUTO_TEST_CASE(emplace)
   BOOST_TEST(a.at("foo").as_object().empty());
 }
 
+BOOST_AUTO_TEST_CASE(erase)
+{
+  json a = json::object({{"foo", 42}, {"bar", 3.14}});
+  BOOST_TEST(a.at("foo").as_signed_integer<signed>() == 42);
+  BOOST_TEST(a.at("bar").as_floating_point<double>() == 3.14);
+  a.erase("foo");
+  BOOST_TEST(a.at("bar").as_floating_point<double>() == 3.14);
+}
+
 BOOST_AUTO_TEST_SUITE_END()
