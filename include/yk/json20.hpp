@@ -19,6 +19,8 @@
 #include <variant>
 #include <vector>
 
+#include <cassert>
+
 #define YK_JSON20_WIDEN_STRING(charT, strLiteral) \
   ::yk::json20::detail::select_str<charT, strLiteral, L##strLiteral, u8##strLiteral, u##strLiteral, U##strLiteral>::value
 
@@ -487,7 +489,11 @@ public:
     stack_.erase(i - 1, stack_.end());
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::array, std::in_place_index<1>, std::move(vec));
   }
-  constexpr void on_array_abort() { stack_.pop_back(); }
+  constexpr void on_array_abort()
+  {
+    auto i = std::ranges::find_if(stack_ | std::views::reverse, [](const auto& var) { return std::holds_alternative<start_tag>(var); }).base();
+    stack_.erase(i - 1, stack_.end());
+  }
 
   constexpr void on_object_start() { stack_.emplace_back(start_tag{}); }
   constexpr void on_object_finalize()
@@ -501,9 +507,17 @@ public:
     stack_.erase(i - 1, stack_.end());
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::object, std::in_place_index<2>, std::move(vec));
   }
-  constexpr void on_object_abort() { stack_.pop_back(); }
+  constexpr void on_object_abort()
+  {
+    auto i = std::ranges::find_if(stack_ | std::views::reverse, [](const auto& var) { return std::holds_alternative<start_tag>(var); }).base();
+    stack_.erase(i - 1, stack_.end());
+  }
 
-  constexpr basic_json<charT> get() const { return std::get<basic_json<charT>>(stack_.back()); }
+  constexpr basic_json<charT> get() const
+  {
+    assert(stack_.size() == 1);
+    return std::get<basic_json<charT>>(stack_.back());
+  }
 
 private:
   struct start_tag {};
