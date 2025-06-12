@@ -331,7 +331,8 @@ public:
   }
 
   template <class... Args>
-  constexpr void erase( std::basic_string_view<charT> key ) {
+  constexpr void erase(std::basic_string_view<charT> key)
+  {
     if (get_kind() != json_value_kind::object) throw bad_json_access{};
     auto& vec = std::get<2>(data_);
     auto iter = std::ranges::lower_bound(vec, key, {}, &std::pair<std::basic_string<charT>, basic_json>::first);
