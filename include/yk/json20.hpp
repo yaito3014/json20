@@ -766,12 +766,30 @@ private:
     return control_characters_parser(str);
   }
 
-#define YK_JSON20_INVOKE_VISITOR(vis, member, normal_arg, raw_arg) \
-  if constexpr (requires { vis.member##_raw(raw_arg); }) {         \
-    vis.member##_raw(raw_arg);                                     \
-  } else if constexpr (requires { vis.member(normal_arg); }) {     \
-    vis.member(normal_arg);                                        \
+#define YK_JSON20_INVOKE_VISITOR_ARG2(vis, member)   \
+  if constexpr (requires { vis.member##_raw(); }) {  \
+    vis.member##_raw();                              \
+  } else if constexpr (requires { vis.member(); }) { \
+    vis.member();                                    \
   }
+
+#define YK_JSON20_INVOKE_VISITOR_ARG3(vis, member, raw_arg) \
+  if constexpr (requires { vis.member##_raw(raw_arg); }) {  \
+    vis.member##_raw(raw_arg);                              \
+  } else if constexpr (requires { vis.member(); }) {        \
+    vis.member();                                           \
+  }
+
+#define YK_JSON20_INVOKE_VISITOR_ARG4(vis, member, normal_arg, raw_arg) \
+  if constexpr (requires { vis.member##_raw(normal_arg, raw_arg); }) {  \
+    vis.member##_raw(normal_arg, raw_arg);                              \
+  } else if constexpr (requires { vis.member(normal_arg); }) {          \
+    vis.member(normal_arg);                                             \
+  }
+
+#define YK_JSON20_INVOKE_VISITOR_SELECTER(_1, _2, _3, _4, _5, ...) _5
+#define YK_JSON20_INVOKE_VISITOR(...) \
+  YK_JSON20_INVOKE_VISITOR_SELECTER(__VA_ARGS__, YK_JSON20_INVOKE_VISITOR_ARG4, YK_JSON20_INVOKE_VISITOR_ARG3, YK_JSON20_INVOKE_VISITOR_ARG2)(__VA_ARGS__)
 
   template<class Visitor>
   static constexpr parse_result<> parse_null(Visitor& vis, std::basic_string_view<charT> str) noexcept
@@ -869,14 +887,14 @@ private:
 
     auto const parser = seq(lit(open_bracket), alt(sep_by(std::bind_front(parse_value<Visitor>, std::ref(vis)), lit(comma)), ws), lit(close_bracket));
 
-    YK_JSON20_INVOKE_VISITOR(vis, on_array_start, , )
+    YK_JSON20_INVOKE_VISITOR(vis, on_array_start)
     auto res = parser(str);
     if (res.match) {
       std::basic_string_view<charT> match{str.begin(), res.rest.begin()};
-      YK_JSON20_INVOKE_VISITOR(vis, on_array_finalize, , match)
+      YK_JSON20_INVOKE_VISITOR(vis, on_array_finalize, match)
       return {match, res.rest};
     }
-    YK_JSON20_INVOKE_VISITOR(vis, on_array_abort, , )
+    YK_JSON20_INVOKE_VISITOR(vis, on_array_abort)
     return {std::nullopt, str};
   }
 
@@ -973,14 +991,14 @@ private:
         seq(ws, std::bind_front(parse_string<Visitor>, std::ref(vis)), ws, lit(colon), std::bind_front(parse_value<Visitor>, std::ref(vis)));
     auto const parser = seq(lit(open_brace), alt(sep_by(key_value_parser, lit(comma)), ws), lit(close_brace));
 
-    YK_JSON20_INVOKE_VISITOR(vis, on_object_start, , )
+    YK_JSON20_INVOKE_VISITOR(vis, on_object_start)
     auto res = parser(str);
     if (res.match) {
       std::basic_string_view<charT> match{str.begin(), res.rest.begin()};
-      YK_JSON20_INVOKE_VISITOR(vis, on_object_finalize, , match)
+      YK_JSON20_INVOKE_VISITOR(vis, on_object_finalize, match)
       return {match, res.rest};
     }
-    YK_JSON20_INVOKE_VISITOR(vis, on_object_abort, , )
+    YK_JSON20_INVOKE_VISITOR(vis, on_object_abort)
     return {std::nullopt, str};
   }
 
