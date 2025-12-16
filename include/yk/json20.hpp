@@ -107,7 +107,7 @@ struct deserializer<bool, char> {
   static constexpr auto deserialize(std::string_view str)
   {
     if (str == true_) return make_deserialize_result<char>(str.begin() + true_.size(), true);
-    if (str == false_) return make_deserialize_result<char>(str.begin() + false_.size(), true);
+    if (str == false_) return make_deserialize_result<char>(str.begin() + false_.size(), false);
     throw std::invalid_argument("argument is not boolean");
   }
 };
