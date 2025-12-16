@@ -13,6 +13,14 @@ BOOST_AUTO_TEST_CASE(ctor)
     BOOST_TEST(a.as_object().empty());
   }
   {
+    json a(true);
+    BOOST_TEST(a.as_boolean() == true);
+  }
+  {
+    json a(false);
+    BOOST_TEST(a.as_boolean() == false);
+  }
+  {
     json a(42u);
     BOOST_TEST(a.as_unsigned_integer<unsigned>() == 42u);
   }
