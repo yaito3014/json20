@@ -16,7 +16,9 @@ target_sources(
 )
 
 include(CTest)
-add_subdirectory(tests EXCLUDE_FROM_ALL)
+if(BUILD_TESTING)
+    add_subdirectory(tests EXCLUDE_FROM_ALL)
+endif()
 
 include(GNUInstallDirs)
 
