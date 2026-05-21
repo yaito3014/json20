@@ -15,7 +15,7 @@ target_sources(
 
 if(PROJECT_IS_TOP_LEVEL)
     include(CTest)
-    add_subdirectory(tests EXCLUDE_FROM_ALL)
+    add_subdirectory(tests)
 endif()
 
 include(GNUInstallDirs)
