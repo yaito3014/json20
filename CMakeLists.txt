@@ -18,25 +18,33 @@ if(PROJECT_IS_TOP_LEVEL)
     add_subdirectory(tests)
 endif()
 
-include(GNUInstallDirs)
-
 add_library(yk::json20 ALIAS json20)
 
-install(TARGETS json20 EXPORT json20_targets FILE_SET HEADERS)
-install(
-    EXPORT json20_targets
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/json20
-    FILE json20-targets.cmake
-    NAMESPACE yk
+option(
+    JSON20_INSTALL
+    "generate install rules for json20"
+    ${PROJECT_IS_TOP_LEVEL}
 )
 
-include(CMakePackageConfigHelpers)
-configure_package_config_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/json20-config.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/json20-config.cmake
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/json20
-)
-install(
-    FILES ${CMAKE_CURRENT_BINARY_DIR}/json20-config.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/json20
-)
+if(JSON20_INSTALL)
+    include(GNUInstallDirs)
+    include(CMakePackageConfigHelpers)
+
+    install(TARGETS json20 EXPORT json20_targets FILE_SET HEADERS)
+    install(
+        EXPORT json20_targets
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/json20
+        FILE json20-targets.cmake
+        NAMESPACE yk
+    )
+
+    configure_package_config_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/cmake/json20-config.cmake.in
+        ${CMAKE_CURRENT_BINARY_DIR}/json20-config.cmake
+        INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/json20
+    )
+    install(
+        FILES ${CMAKE_CURRENT_BINARY_DIR}/json20-config.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/json20
+    )
+endif()
