@@ -1,5 +1,14 @@
 cmake_minimum_required(VERSION 3.23)
 
+if(
+    CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR
+    AND NOT DEFINED CMAKE_PROJECT_TOP_LEVEL_INCLUDES
+)
+    set(CMAKE_PROJECT_TOP_LEVEL_INCLUDES
+        "${CMAKE_CURRENT_LIST_DIR}/cmake/dependencies.cmake"
+    )
+endif()
+
 project(json20 VERSION 0.0.1 LANGUAGES CXX)
 
 add_library(json20 INTERFACE)
@@ -14,7 +23,7 @@ target_sources(
 )
 
 if(PROJECT_IS_TOP_LEVEL)
-    include(CTest)
+    enable_testing()
     add_subdirectory(tests)
 endif()
 
