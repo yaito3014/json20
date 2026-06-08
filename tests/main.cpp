@@ -1,13 +1,10 @@
 #include <yk/json20.hpp>
 
-#define BOOST_TEST_MODULE yk_json20
-#include <boost/test/unit_test.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #include <print>
 
-BOOST_AUTO_TEST_SUITE(debug)
-
-BOOST_AUTO_TEST_CASE(visit)
+TEST_CASE("visit", "[debug]")
 {
   struct print_visitor {
     void on_null(std::string_view str) noexcept { std::println("on_null: {:?}", str); }
@@ -47,5 +44,3 @@ BOOST_AUTO_TEST_CASE(visit)
     auto const json = json_visitor.get();
   }
 }
-
-BOOST_AUTO_TEST_SUITE_END()

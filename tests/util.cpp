@@ -1,11 +1,9 @@
 #include <yk/json20.hpp>
 
-#include <boost/test/unit_test.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #include <string_view>
 #include <type_traits>
-
-BOOST_AUTO_TEST_SUITE(util)
 
 template <class FixedString>
 struct is_wfixed_string : std::false_type {};
@@ -13,7 +11,7 @@ struct is_wfixed_string : std::false_type {};
 template <std::size_t N>
 struct is_wfixed_string<yk::json20::detail::basic_fixed_string<wchar_t, N>> : std::true_type {};
 
-BOOST_AUTO_TEST_CASE(widen_string)
+TEST_CASE("widen_string", "[util]")
 {
   {
     constexpr auto s = YK_JSON20_WIDEN_STRING(char, "foo");
@@ -37,5 +35,3 @@ BOOST_AUTO_TEST_CASE(widen_string)
     static_assert(std::is_same_v<decltype(s), const yk::json20::detail::basic_fixed_string<char32_t, 3>>);
   }
 }
-
-BOOST_AUTO_TEST_SUITE_END()
