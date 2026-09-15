@@ -53,3 +53,36 @@ error: call to consteval function 'std::basic_format_string<...>("on_null: {:?}"
   `std::map::erase(key)` の `size_type` は要素数が高々 1 なので `bool` で十分と判断
 - 意味のない `template<class... Args>` ヘッダを除去（`emplace` からのコピー残骸と推測）
 
+## 2026-09-15: バグ修正 — serializer のバッファが未終端 + サイズ不足（引き継ぎメモ外の発見）
+
+`try_as_*` の修正テストを書いたら `json(42u)` の `try_as_unsigned_integer<unsigned>() == 42u` が
+**Catch2 の中でだけ**失敗し、単体の main では通る、という現象で発覚。原因は
+`serializer<T, char>::serialize`:
+
+```cpp
+char buf[std::numeric_limits<T>::digits10 + 1];
+auto [ptr, ec] = std::to_chars(std::begin(buf), std::end(buf), x);
+...
+return std::string(buf);   // ← ptr を使っていない
+```
+
+1. `std::string(buf)` は null 終端を仮定するが、`to_chars` は終端を書かない。
+   `"42"` の直後のスタックゴミが数字だと字句が `"428…"` になり、読み出し時の
+   `from_chars` が別の値を返す。スタックの内容次第なので、呼び出し文脈（Catch2 か
+   単体 main か）で成否が変わる。UB が「たまたま通るテスト」を作る実例
+2. `digits10 + 1` は不足。`digits10` は切り捨て（int64 で 18）なので、
+   `INT64_MIN`（20 文字）や `UINT64_MAX`（20 文字）で `to_chars` が
+   `value_too_large` → `runtime_error("to_chars error")` を投げる。
+   `double` も `numeric_limits<double>::digits10 + 1 = 16` に対し最短表現は
+   最大 24 文字（`-1.7976931348623157e+308`）
+
+修正:
+
+- サイズ: 整数は `digits10 + 2`（切り捨て分 + 符号）、浮動小数点は
+  `max_digits10 + 8`（符号 + 小数点 + `e+XXXX`。80bit long double の `e+4932` も収まる）
+- 構築: `std::string(buf, ptr)` で to_chars が書いた範囲だけを使う
+
+字句保持設計（値を文字列で持つ）はシリアライズが唯一の正規化点なので、ここが壊れると
+全アクセサが壊れる。roundtrip テスト（INT64_MIN / UINT64_MAX / double max / 0.1）と
+字句そのものの検査（`as_string_unchecked() == "42"`）を追加した。
+

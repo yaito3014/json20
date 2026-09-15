@@ -2,6 +2,9 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <cstdint>
+#include <limits>
+
 using json = yk::json20::basic_json<char>;
 
 TEST_CASE("ctor", "[json]")
@@ -102,6 +105,31 @@ TEST_CASE("emplace", "[json]")
   json a;
   a.emplace("foo");
   CHECK(a.at("foo").as_object().empty());
+}
+
+TEST_CASE("number roundtrip", "[json]")
+{
+  {
+    json a(std::numeric_limits<std::int64_t>::min());
+    CHECK(a.as_signed_integer<std::int64_t>() == std::numeric_limits<std::int64_t>::min());
+  }
+  {
+    json a(std::numeric_limits<std::uint64_t>::max());
+    CHECK(a.as_unsigned_integer<std::uint64_t>() == std::numeric_limits<std::uint64_t>::max());
+  }
+  {
+    json a(std::numeric_limits<double>::max());
+    CHECK(a.as_floating_point<double>() == std::numeric_limits<double>::max());
+  }
+  {
+    json a(0.1);
+    CHECK(a.as_floating_point<double>() == 0.1);
+    CHECK(a.as_string_unchecked() == "0.1");
+  }
+  {
+    json a(42u);
+    CHECK(a.as_string_unchecked() == "42");
+  }
 }
 
 TEST_CASE("erase", "[json]")

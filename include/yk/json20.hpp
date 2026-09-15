@@ -141,10 +141,18 @@ template<class T>
 struct serializer<T, char> {
   static constexpr std::string serialize(T const& x)
   {
-    char buf[std::numeric_limits<T>::digits10 + 1];
+    // digits10 rounds down, so +2 covers all digits plus the sign;
+    // shortest float form needs max_digits10 digits, sign, dot, and "e+XXXX"
+    constexpr std::size_t buf_size = [] {
+      if constexpr (std::integral<T>)
+        return std::numeric_limits<T>::digits10 + 2;
+      else
+        return std::numeric_limits<T>::max_digits10 + 8;
+    }();
+    char buf[buf_size];
     auto [ptr, ec] = std::to_chars(std::begin(buf), std::end(buf), x);
     if (ec != std::errc{}) throw std::runtime_error("to_chars error");
-    return std::string(buf);
+    return std::string(buf, ptr);
   }
 };
 
