@@ -169,11 +169,42 @@ enum class json_value_kind {
 
 class bad_json_access : public std::exception {};
 
+namespace detail {
+
+// maps a semantic kind onto its storage alternative: every scalar kind keeps
+// its lexeme in the string at index 0, only the containers get their own slot
+template<json_value_kind K>
+inline constexpr std::size_t storage_index_of =
+    K == json_value_kind::array ? 1 : K == json_value_kind::object ? 2 : 0;
+
+}  // namespace detail
+
 template<class charT>
 class basic_json {
 private:
-  struct private_construct_t {};
-  static inline constexpr private_construct_t private_construct{};
+  template<json_value_kind K>
+  struct kind_construct_t {};
+
+  // the only places where a kind is paired with a storage alternative;
+  // every constructor, assignment and the visitor funnel through these
+  template<json_value_kind K, class... Args>
+  constexpr basic_json(kind_construct_t<K>, Args&&... args)
+      : kind_(K), data_(std::in_place_index<detail::storage_index_of<K>>, std::forward<Args>(args)...)
+  {
+  }
+
+  template<json_value_kind K, class... Args>
+  static constexpr basic_json make(Args&&... args)
+  {
+    return basic_json(kind_construct_t<K>{}, std::forward<Args>(args)...);
+  }
+
+  template<json_value_kind K, class... Args>
+  constexpr void emplace_kind(Args&&... args)
+  {
+    data_.template emplace<detail::storage_index_of<K>>(std::forward<Args>(args)...);
+    kind_ = K;
+  }
 
 public:
   constexpr bool as_boolean_unchecked() const { return std::make_from_tuple<bool>(deserializer<bool, charT>::deserialize(std::get<0>(data_)).args); }
@@ -400,37 +431,37 @@ public:
   friend class basic_json_visitor;
 
   constexpr basic_json()
-      : kind_(json_value_kind::null), data_(std::in_place_index<0>, std::basic_string_view<charT>(YK_JSON20_WIDEN_STRING(charT, "null")))
+      : basic_json(kind_construct_t<json_value_kind::null>{}, std::basic_string_view<charT>(YK_JSON20_WIDEN_STRING(charT, "null")))
   {
   }
 
-  constexpr basic_json(bool x) : kind_(json_value_kind::boolean), data_(std::in_place_index<0>, serializer<bool, charT>::serialize(x)) {}
+  constexpr basic_json(bool x) : basic_json(kind_construct_t<json_value_kind::boolean>{}, serializer<bool, charT>::serialize(x)) {}
 
   template<std::unsigned_integral UInt>
-  constexpr basic_json(UInt x) : kind_(json_value_kind::number_unsigned_integer), data_(std::in_place_index<0>, serializer<UInt, charT>::serialize(x))
+  constexpr basic_json(UInt x) : basic_json(kind_construct_t<json_value_kind::number_unsigned_integer>{}, serializer<UInt, charT>::serialize(x))
   {
   }
 
   template<std::signed_integral Int>
-  constexpr basic_json(Int x) : kind_(json_value_kind::number_signed_integer), data_(std::in_place_index<0>, serializer<Int, charT>::serialize(x))
+  constexpr basic_json(Int x) : basic_json(kind_construct_t<json_value_kind::number_signed_integer>{}, serializer<Int, charT>::serialize(x))
   {
   }
 
   template<std::floating_point Float>
-  constexpr basic_json(Float x) : kind_(json_value_kind::number_floating_point), data_(std::in_place_index<0>, serializer<Float, charT>::serialize(x))
+  constexpr basic_json(Float x) : basic_json(kind_construct_t<json_value_kind::number_floating_point>{}, serializer<Float, charT>::serialize(x))
   {
   }
 
   template<class S>
     requires std::is_convertible_v<S const&, std::basic_string_view<charT>>
-  constexpr basic_json(S const& str) : kind_(json_value_kind::string), data_(std::in_place_index<0>, str)
+  constexpr basic_json(S const& str) : basic_json(kind_construct_t<json_value_kind::string>{}, str)
   {
   }
 
-  constexpr basic_json(std::initializer_list<basic_json> il) : kind_(json_value_kind::array), data_(std::in_place_index<1>, il) {}
+  constexpr basic_json(std::initializer_list<basic_json> il) : basic_json(kind_construct_t<json_value_kind::array>{}, il) {}
 
   constexpr basic_json(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il)
-      : kind_(json_value_kind::object), data_(std::in_place_index<2>, il)
+      : basic_json(kind_construct_t<json_value_kind::object>{}, il)
   {
     std::ranges::sort(std::get<2>(data_), {}, &std::pair<std::basic_string<charT>, basic_json>::first);
   }
@@ -438,24 +469,21 @@ public:
   template<std::unsigned_integral UInt>
   constexpr basic_json& operator=(UInt x)
   {
-    kind_ = json_value_kind::number_unsigned_integer;
-    data_.template emplace<0>(serializer<UInt, charT>::serialize(x));
+    emplace_kind<json_value_kind::number_unsigned_integer>(serializer<UInt, charT>::serialize(x));
     return *this;
   }
 
   template<std::signed_integral Int>
   constexpr basic_json& operator=(Int x)
   {
-    kind_ = json_value_kind::number_signed_integer;
-    data_.template emplace<0>(serializer<Int, charT>::serialize(x));
+    emplace_kind<json_value_kind::number_signed_integer>(serializer<Int, charT>::serialize(x));
     return *this;
   }
 
   template<std::floating_point Float>
   constexpr basic_json& operator=(Float x)
   {
-    kind_ = json_value_kind::number_floating_point;
-    data_.template emplace<0>(serializer<Float, charT>::serialize(x));
+    emplace_kind<json_value_kind::number_floating_point>(serializer<Float, charT>::serialize(x));
     return *this;
   }
 
@@ -463,36 +491,28 @@ public:
     requires std::is_convertible_v<S const&, std::basic_string_view<charT>>
   constexpr basic_json& operator=(S const& str)
   {
-    kind_ = json_value_kind::string;
-    data_.template emplace<0>(str);
+    emplace_kind<json_value_kind::string>(str);
     return *this;
   }
 
   constexpr basic_json& operator=(std::initializer_list<basic_json> il)
   {
-    kind_ = json_value_kind::array;
-    data_.template emplace<1>(il);
+    emplace_kind<json_value_kind::array>(il);
     return *this;
   }
 
   constexpr basic_json& operator=(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il)
   {
-    kind_ = json_value_kind::object;
-    data_.template emplace<2>(il);
+    emplace_kind<json_value_kind::object>(il);
     std::ranges::sort(std::get<2>(data_), {}, &std::pair<std::basic_string<charT>, basic_json>::first);
     return *this;
   }
 
-  template<class... Args>
-  constexpr basic_json(private_construct_t, json_value_kind kind, Args&&... args) : kind_(kind), data_(std::forward<Args>(args)...)
-  {
-  }
-
-  static constexpr basic_json array() { return basic_json(private_construct, json_value_kind::array, std::in_place_index<1>); }
+  static constexpr basic_json array() { return make<json_value_kind::array>(); }
 
   static constexpr basic_json array(std::initializer_list<basic_json> il) { return basic_json(std::move(il)); }
 
-  static constexpr basic_json object() { return basic_json(private_construct, json_value_kind::object, std::in_place_index<2>); }
+  static constexpr basic_json object() { return make<json_value_kind::object>(); }
 
   static constexpr basic_json object(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il) { return basic_json(std::move(il)); }
 
@@ -512,33 +532,27 @@ class basic_json_visitor {
 public:
   constexpr void on_null(std::basic_string_view<charT> str)
   {
-    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::null, std::in_place_index<0>, str.begin(), str.end());
+    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::template make<json_value_kind::null>(str.begin(), str.end()));
   }
   constexpr void on_boolean(std::basic_string_view<charT> str)
   {
-    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::boolean, std::in_place_index<0>, str.begin(), str.end());
+    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::template make<json_value_kind::boolean>(str.begin(), str.end()));
   }
   constexpr void on_number_unsigned_integer(std::basic_string_view<charT> str)
   {
-    stack_.emplace_back(
-        std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::number_unsigned_integer, std::in_place_index<0>, str.begin(), str.end()
-    );
+    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::template make<json_value_kind::number_unsigned_integer>(str.begin(), str.end()));
   }
   constexpr void on_number_signed_integer(std::basic_string_view<charT> str)
   {
-    stack_.emplace_back(
-        std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::number_signed_integer, std::in_place_index<0>, str.begin(), str.end()
-    );
+    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::template make<json_value_kind::number_signed_integer>(str.begin(), str.end()));
   }
   constexpr void on_number_floating_point(std::basic_string_view<charT> str)
   {
-    stack_.emplace_back(
-        std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::number_floating_point, std::in_place_index<0>, str.begin(), str.end()
-    );
+    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::template make<json_value_kind::number_floating_point>(str.begin(), str.end()));
   }
   constexpr void on_string(std::basic_string_view<charT> str)
   {
-    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::string, std::in_place_index<0>, str.begin(), str.end());
+    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::template make<json_value_kind::string>(str.begin(), str.end()));
   }
 
   constexpr void on_array_start() { stack_.emplace_back(start_tag{}); }
@@ -550,7 +564,7 @@ public:
       vec.emplace_back(std::get<basic_json<charT>>(std::move(*j)));
     }
     stack_.erase(i - 1, stack_.end());
-    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::array, std::in_place_index<1>, std::move(vec));
+    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::template make<json_value_kind::array>(std::move(vec)));
   }
   constexpr void on_array_abort()
   {
@@ -568,7 +582,7 @@ public:
     }
     std::ranges::sort(vec, {}, &std::pair<std::basic_string<charT>, basic_json<charT>>::first);
     stack_.erase(i - 1, stack_.end());
-    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::private_construct, json_value_kind::object, std::in_place_index<2>, std::move(vec));
+    stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::template make<json_value_kind::object>(std::move(vec)));
   }
   constexpr void on_object_abort()
   {

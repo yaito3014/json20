@@ -221,3 +221,46 @@ static_assert((V{}, true));  // GCC 14: OK / clang 18 + libstdc++ 14: エラー
 - 「constexpr パースの到達点」（メモの未解決問題）に直結する制約: `basic_json` の
   定数式構築は GCC でしか担保できていない。clang 19/20 や libc++ での再確認は TODO
 
+## 2026-09-15: 設計判断 — `kind_` の別持ちは維持し、kind と storage の対を作れる場所を一元化
+
+出発点は「理想的には variant のタグ型に enum を指定したいが、できないので `kind_` を
+別で持っている」という問題意識。整理すると、`kind_` は variant タグの**複製ではない**:
+
+- kind は 8 値（null / boolean / string / 数値 3 種 / array / object）、storage は 3 択
+  （字句 `basic_string` / array / object）で、スカラー 6 種が index 0 を共有する
+- つまり kind → index は**多対一の純関数**。字句保持設計（型を決めず文字列で持ち、
+  アクセス時に変換する）の帰結であり、null を字句 `"null"` で持つ以上、
+  内容から kind を再導出することもできない。`kind_` はどの設計でも消えない
+
+検討した選択肢:
+
+1. **8 択 variant（index == kind）** — `null_t{string}`, `boolean_t{string}`, … と
+   ラッパー型を 6 つ作れば不変条件は構造的に消えるが、現在 `std::get<0>(data_)` 一発の
+   字句アクセス（`as_*_unchecked`、deserialize、visitor）が全部 6 分岐 visit になる。
+   静的に分かっていることに毎回 visit を払うことになり却下
+2. **自前 tagged union（タグが本当に enum）** — 「理想」の直接実装だが、C++20 の
+   constexpr union は `std::construct_at` 込みの機械が必要で、variant の例外安全も
+   自前になる。clang + libstdc++ の constexpr variant 問題（前項）をこれで回避できる
+   可能性はあるが、それは constexpr 到達点を攻める際の別判断として保留
+3. **別持ちは維持し、対を作れる場所を一元化（採用）** — 真の問題は二重持ちではなく、
+   旧 `private_construct` コンストラクタが `(kind, in_place_index)` を**別々に**受け、
+   呼び出し側（visitor 含む）が誤った組を渡せたこと
+
+実装:
+
+- `detail::storage_index_of<K>`: kind → storage index の写像。コード上ここにしか存在しない
+- private の `kind_construct_t<K>` タグ付きコンストラクタ / `make<K>(args...)` /
+  `emplace_kind<K>(args...)`: kind をテンプレート引数で受け、index は写像から導出。
+  **呼び出し側は kind しか指定できず、不一致は構文的に書けない**
+- 公開コンストラクタは全て `kind_construct_t<K>` へ委譲、代入は `emplace_kind<K>`、
+  visitor は `make<K>` を使用。`private_construct`（kind と index を自由に組めた唯一の穴、
+  しかも public に置かれていた）は削除
+- `emplace_kind` は storage を先に emplace してから `kind_ = K`。emplace が throw した
+  場合に旧 kind が残る（variant が valueless になる可能性はあるが、kind の更新だけ
+  先行して不一致を作るよりよい）
+
+記事の観点: 「タグの複製に見えるものが実は semantic kind と storage representation の
+分離だった。直すべきは複製ではなく、対を組む自由だった」。enum をタグにできる variant が
+欲しいという要求は、`tagged_variant<Enum, Mapping>` として汎用化もできるが、
+使用箇所が 1 つしかない段階での抽象化は見送った（YAGNI）。
+
