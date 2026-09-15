@@ -109,6 +109,14 @@ TEST_CASE("erase", "[json]")
   json a = json::object({{"foo", 42}, {"bar", 3.14}});
   CHECK(a.at("foo").as_signed_integer<signed>() == 42);
   CHECK(a.at("bar").as_floating_point<double>() == 3.14);
-  a.erase("foo");
+
+  CHECK(a.erase("foo"));
+  CHECK_FALSE(a.try_at("foo").has_value());
+  CHECK(a.as_object().size() == 1);
+  CHECK(a.at("bar").as_floating_point<double>() == 3.14);
+
+  // erasing a missing key is a no-op
+  CHECK_FALSE(a.erase("baz"));
+  CHECK(a.as_object().size() == 1);
   CHECK(a.at("bar").as_floating_point<double>() == 3.14);
 }

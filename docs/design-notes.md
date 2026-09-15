@@ -34,3 +34,22 @@ error: call to consteval function 'std::basic_format_string<...>("on_null: {:?}"
 - 却下: `__cpp_lib_format` での条件分岐 — テストの見通しが悪くなるわりに得るものが小さい
 - 備考: GCC 13 はそもそも `<print>` 自体がない（libstdc++ に入ったのは GCC 14 から）。
   テストは `cxx_std_23` を要求しているため、実質 GCC 14+ / 対応 Clang が必要
+
+## 2026-09-15: バグ修正 — `erase(key)` の条件が逆
+
+症状（再現テストで確認、GCC 14.2）:
+
+- `erase("foo")`（存在するキー）→ 何もしない（発見時に `return` していた）
+- `erase("baz")`（存在しないキー）→ `lower_bound` の位置をそのまま `vec.erase(iter)` に渡すため、
+  **隣のキーを誤削除**する（`{"bar", "foo"}` に対して `erase("baz")` は `"foo"` を消す）。
+  キーが末尾より後ろに整列される場合は `erase(end())` で UB
+- 既存テストは削除後に残存キーを読むだけで「消えたこと」を検証していなかったため発覚せず。
+  再現テストでは `erase("baz")` 後のサイズ検査が誤削除のせいで「偶然」通る、という
+  二重の見逃しも観測した（テストは失敗の仕方まで見ないと信用できない、の実例）
+
+修正: 条件を正しい向き（未発見なら `return`、発見時に `erase`）に。あわせて
+
+- 戻り値を `void` → `bool`（削除したか）に変更。`insert` / `emplace` が `bool` を返すのと対称。
+  `std::map::erase(key)` の `size_type` は要素数が高々 1 なので `bool` で十分と判断
+- 意味のない `template<class... Args>` ヘッダを除去（`emplace` からのコピー残骸と推測）
+
