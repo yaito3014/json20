@@ -753,7 +753,7 @@ private:
         lit(YK_JSON20_WIDEN_STRING(charT, "\x0D")),  //
         lit(YK_JSON20_WIDEN_STRING(charT, "\x0E")),  //
         lit(YK_JSON20_WIDEN_STRING(charT, "\x0F")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x00")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\x10")),  //
         lit(YK_JSON20_WIDEN_STRING(charT, "\x11")),  //
         lit(YK_JSON20_WIDEN_STRING(charT, "\x12")),  //
         lit(YK_JSON20_WIDEN_STRING(charT, "\x13")),  //

@@ -159,6 +159,16 @@ TEST_CASE("string", "[parse]")
   }
 }
 
+TEST_CASE("control characters", "[parse]")
+{
+  // RFC 8259: unescaped control characters (U+0000..U+001F) must not appear in strings
+  for (int c = 0x00; c <= 0x1F; ++c) {
+    char const buf[3] = {'"', static_cast<char>(c), '"'};
+    CAPTURE(c);
+    CHECK_FALSE(json_parser::try_parse(std::string_view(buf, 3)).has_value());
+  }
+}
+
 TEST_CASE("object", "[parse]")
 {
   {
