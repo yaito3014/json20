@@ -14,3 +14,18 @@ yk_json20_add_test(json)
 yk_json20_add_test(main)
 yk_json20_add_test(parse)
 yk_json20_add_test(util)
+
+# EBCDIC support check: all assertions in ebcdic.cpp are static_asserts, so
+# successful compilation is the actual test. Only possible where the compiler
+# can target an EBCDIC execution character set (GCC with iconv; clang cannot).
+include(CheckCXXSourceCompiles)
+set(CMAKE_REQUIRED_FLAGS "-fexec-charset=IBM1047")
+check_cxx_source_compiles("int main() {}" YK_JSON20_HAS_EXEC_CHARSET_IBM1047)
+unset(CMAKE_REQUIRED_FLAGS)
+if(YK_JSON20_HAS_EXEC_CHARSET_IBM1047)
+    add_executable(yk_json20_ebcdic_test ebcdic.cpp)
+    target_compile_features(yk_json20_ebcdic_test PRIVATE cxx_std_23)
+    target_compile_options(yk_json20_ebcdic_test PRIVATE -fexec-charset=IBM1047)
+    target_link_libraries(yk_json20_ebcdic_test PRIVATE json20)
+    add_test(NAME yk_json20_ebcdic_test COMMAND yk_json20_ebcdic_test)
+endif()

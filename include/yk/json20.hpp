@@ -758,9 +758,9 @@ private:
   static constexpr parse_result<> ws(std::basic_string_view<charT> str) noexcept
   {
     auto const space = YK_JSON20_WIDEN_STRING(charT, " ");
-    auto const lf = YK_JSON20_WIDEN_STRING(charT, "\n");
-    auto const cr = YK_JSON20_WIDEN_STRING(charT, "\r");
-    auto const tab = YK_JSON20_WIDEN_STRING(charT, "\t");
+    auto const lf = YK_JSON20_WIDEN_STRING(charT, "\u000A");
+    auto const cr = YK_JSON20_WIDEN_STRING(charT, "\u000D");
+    auto const tab = YK_JSON20_WIDEN_STRING(charT, "\u0009");
 
     auto const parser = many(alt(lit(space), lit(lf), lit(cr), lit(tab)));
     auto res = parser(str);
@@ -770,38 +770,38 @@ private:
   static constexpr parse_result<> cntrl(std::basic_string_view<charT> str) noexcept
   {
     auto const control_characters_parser = alt(
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x00")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x01")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x02")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x03")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x04")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x05")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x06")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x07")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x08")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x09")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x0A")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x0B")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x0C")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x0D")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x0E")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x0F")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x10")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x11")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x12")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x13")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x14")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x15")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x16")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x17")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x18")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x19")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x1A")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x1B")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x1C")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x1D")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x1E")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\x1F"))   //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0000")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0001")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0002")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0003")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0004")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0005")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0006")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0007")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0008")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0009")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u000A")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u000B")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u000C")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u000D")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u000E")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u000F")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0010")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0011")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0012")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0013")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0014")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0015")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0016")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0017")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0018")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u0019")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u001A")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u001B")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u001C")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u001D")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u001E")),  //
+        lit(YK_JSON20_WIDEN_STRING(charT, "\u001F"))   //
     );
 
     return control_characters_parser(str);
@@ -981,11 +981,11 @@ private:
       auto const str_n = YK_JSON20_WIDEN_STRING(charT, "n");
       auto const str_r = YK_JSON20_WIDEN_STRING(charT, "r");
       auto const str_t = YK_JSON20_WIDEN_STRING(charT, "t");
-      auto const backspace = YK_JSON20_WIDEN_STRING(charT, "\b");
-      auto const formfeed = YK_JSON20_WIDEN_STRING(charT, "\f");
-      auto const linefeed = YK_JSON20_WIDEN_STRING(charT, "\n");
-      auto const cr = YK_JSON20_WIDEN_STRING(charT, "\r");
-      auto const tab = YK_JSON20_WIDEN_STRING(charT, "\t");
+      auto const backspace = YK_JSON20_WIDEN_STRING(charT, "\u0008");
+      auto const formfeed = YK_JSON20_WIDEN_STRING(charT, "\u000C");
+      auto const linefeed = YK_JSON20_WIDEN_STRING(charT, "\u000A");
+      auto const cr = YK_JSON20_WIDEN_STRING(charT, "\u000D");
+      auto const tab = YK_JSON20_WIDEN_STRING(charT, "\u0009");
 
       if (sequence.starts_with(quote)) return {std::basic_string<charT>{quote}, sequence.substr(quote.size())};
       if (sequence.starts_with(backslash)) return {std::basic_string<charT>{backslash}, sequence.substr(backslash.size())};
