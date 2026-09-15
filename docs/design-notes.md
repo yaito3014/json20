@@ -199,3 +199,25 @@ mutable アクセスの設計はまとめて別判断とする。
 破壊的変更: 旧コードの `json a; a.insert(...)` は `bad_json_access` を投げるようになる。
 移行は `json a = json::object();`。
 
+## 2026-09-15: コンパイラ挙動メモ — clang 18 + libstdc++ 14 は `variant<string, …>` を constexpr 構築できない
+
+`static_assert(json{}.get_kind() == json_value_kind::null)` が GCC 14.2 では通るのに
+clang 18.1.3（libstdc++ 14 ヘッダ使用）では
+"placement new would change type of storage from `__aligned_membuf<basic_string>` to
+`basic_string`" として非定数式扱いになる。json20 とは無関係の最小再現（10 行）:
+
+```cpp
+#include <variant>
+#include <string>
+#include <vector>
+struct V { std::variant<std::string, std::vector<int>> v; constexpr V() : v(std::in_place_index<0>, "null") {} };
+static_assert((V{}, true));  // GCC 14: OK / clang 18 + libstdc++ 14: エラー
+```
+
+- libstdc++ の `_Variadic_union` が使う placement new の書き方を、GCC は自前ヘッダとして
+  受理するが clang のフロントエンドは定数式と認めない、という処理系間の相互運用問題
+- ランタイム動作は clang でも全テスト相当の確認で問題なし。影響は
+  「`basic_json` を含む値を定数式で作る」場合のみ
+- 「constexpr パースの到達点」（メモの未解決問題）に直結する制約: `basic_json` の
+  定数式構築は GCC でしか担保できていない。clang 19/20 や libc++ での再確認は TODO
+
