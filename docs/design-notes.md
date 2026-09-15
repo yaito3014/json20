@@ -139,3 +139,31 @@ kind が一致していてもオーバーフローは起きる（`json(300u)` �
 参考: `std::optional` を返す以上、変換失敗の「理由」は潰れる。理由が要る用途は
 throw 版 `as_*` を使う、という住み分け。
 
+## 2026-09-15: 設計判断 — `try_as_string/array/object` と `try_at` は `T const*` を返す
+
+旧: `try_as_array()` が `std::optional<std::vector<basic_json>>` を**値で**返していた。
+kind 不一致の検査をしたいだけで部分木全体の深いコピーが発生する。`try_at` も同様に
+`optional<basic_json>` の値返しで、要素 1 つの参照が欲しいだけでコピーになる。
+
+検討した選択肢:
+
+1. `std::optional<T>`（現状）— コピーコストが致命的。却下
+2. `std::optional<std::reference_wrapper<T const>>` — コピーは消えるが、
+   呼び出し側が `opt->get().size()` のように `get()` を挟む必要があり書き味が悪い。却下
+3. C++26 `std::optional<T&>` — 意味的には理想だが、C++20 ライブラリなので使えない。見送り
+4. **`T const*`（採用）** — `std::get_if` / `std::any_cast` のポインタ版という
+   標準ライブラリに前例のある形。「失敗しうる・参照が欲しい」の標準的な回答であり、
+   `if (auto* p = j.try_as_array())` のイディオムがそのまま書ける
+
+住み分けの整理（この判断で API 全体の規則ができた）:
+
+- **計算して返す値**（bool・数値: 字句から `from_chars` で毎回生成）→ `optional<T>` のまま
+- **格納されている値**（string・array・object・要素）→ `T const*`
+
+「格納物はポインタ、計算結果は optional」という一貫した規則になり、
+どちらを返すかが実装の都合ではなく意味で決まる。テストでは
+`try_as_array() == &as_array()` で「同じストレージを指す＝コピーなし」を固定した。
+
+備考: 非 const 版（`T*` 返し）は現状 `as_*` 側にも存在しないため追加せず、
+mutable アクセスの設計はまとめて別判断とする。
+

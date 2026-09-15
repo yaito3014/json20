@@ -295,22 +295,22 @@ public:
     }
   }
 
-  constexpr std::optional<std::basic_string<charT>> try_as_string() const noexcept
+  constexpr std::basic_string<charT> const* try_as_string() const noexcept
   {
-    if (get_kind() != json_value_kind::string) return std::nullopt;
-    return as_string_unchecked();
+    if (get_kind() != json_value_kind::string) return nullptr;
+    return &as_string_unchecked();
   }
 
-  constexpr std::optional<std::vector<basic_json<charT>>> try_as_array() const noexcept
+  constexpr std::vector<basic_json<charT>> const* try_as_array() const noexcept
   {
-    if (get_kind() != json_value_kind::array) return std::nullopt;
-    return as_array_unchecked();
+    if (get_kind() != json_value_kind::array) return nullptr;
+    return &as_array_unchecked();
   }
 
-  constexpr std::optional<std::vector<std::pair<std::basic_string<charT>, basic_json>>> try_as_object() const noexcept
+  constexpr std::vector<std::pair<std::basic_string<charT>, basic_json>> const* try_as_object() const noexcept
   {
-    if (get_kind() != json_value_kind::object) return std::nullopt;
-    return as_object_unchecked();
+    if (get_kind() != json_value_kind::object) return nullptr;
+    return &as_object_unchecked();
   }
 
   constexpr basic_json const& at(std::size_t index) const
@@ -328,21 +328,21 @@ public:
     return iter->second;
   }
 
-  constexpr std::optional<basic_json> try_at(std::size_t index) const noexcept
+  constexpr basic_json const* try_at(std::size_t index) const noexcept
   {
-    if (get_kind() != json_value_kind::array) return std::nullopt;
+    if (get_kind() != json_value_kind::array) return nullptr;
     auto& vec = std::get<1>(data_);
-    if (index >= vec.size()) return std::nullopt;
-    return vec[index];
+    if (index >= vec.size()) return nullptr;
+    return &vec[index];
   }
 
-  constexpr std::optional<basic_json> try_at(std::basic_string_view<charT> key) const noexcept
+  constexpr basic_json const* try_at(std::basic_string_view<charT> key) const noexcept
   {
-    if (get_kind() != json_value_kind::object) return std::nullopt;
+    if (get_kind() != json_value_kind::object) return nullptr;
     auto& vec = std::get<2>(data_);
     auto iter = std::ranges::lower_bound(vec, key, {}, &std::pair<std::basic_string<charT>, basic_json>::first);
-    if (iter == vec.end() || iter->first != key) return std::nullopt;
-    return iter->second;
+    if (iter == vec.end() || iter->first != key) return nullptr;
+    return &iter->second;
   }
 
   constexpr basic_json& operator[](std::size_t idx)

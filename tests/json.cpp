@@ -124,6 +124,29 @@ TEST_CASE("try_as", "[json]")
 
   json d(true);
   CHECK(d.try_as_boolean() == true);
+
+  // stored values are returned by pointer, std::get_if style
+  json s("foo");
+  REQUIRE(s.try_as_string() != nullptr);
+  CHECK(*s.try_as_string() == "foo");
+  CHECK(s.try_as_array() == nullptr);
+  CHECK(s.try_as_object() == nullptr);
+  CHECK(s.try_at(0) == nullptr);
+
+  json arr = json::array({1, 2});
+  REQUIRE(arr.try_as_array() != nullptr);
+  CHECK(arr.try_as_array()->size() == 2);
+  CHECK(arr.try_as_array() == &arr.as_array());  // no copy: same storage
+  REQUIRE(arr.try_at(1) != nullptr);
+  CHECK(arr.try_at(1)->as_signed_integer<int>() == 2);
+  CHECK(arr.try_at(2) == nullptr);
+
+  json obj = json::object({{"foo", 42}});
+  REQUIRE(obj.try_as_object() != nullptr);
+  CHECK(obj.try_as_object()->size() == 1);
+  REQUIRE(obj.try_at("foo") != nullptr);
+  CHECK(obj.try_at("foo")->as_signed_integer<int>() == 42);
+  CHECK(obj.try_at("bar") == nullptr);
 }
 
 TEST_CASE("numeric conversion failure", "[json]")
@@ -181,7 +204,7 @@ TEST_CASE("erase", "[json]")
   CHECK(a.at("bar").as_floating_point<double>() == 3.14);
 
   CHECK(a.erase("foo"));
-  CHECK_FALSE(a.try_at("foo").has_value());
+  CHECK(a.try_at("foo") == nullptr);
   CHECK(a.as_object().size() == 1);
   CHECK(a.at("bar").as_floating_point<double>() == 3.14);
 
