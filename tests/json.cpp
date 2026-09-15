@@ -126,6 +126,29 @@ TEST_CASE("try_as", "[json]")
   CHECK(d.try_as_boolean() == true);
 }
 
+TEST_CASE("numeric conversion failure", "[json]")
+{
+  // kind matches but the value does not fit the requested type
+  json a(300u);
+  CHECK_THROWS_AS(a.as_unsigned_integer<std::uint8_t>(), std::invalid_argument);
+  CHECK_THROWS_AS(a.as_unsigned_integer_unchecked<std::uint8_t>(), std::invalid_argument);
+  CHECK_FALSE(a.try_as_unsigned_integer<std::uint8_t>().has_value());
+  CHECK(a.try_as_unsigned_integer<unsigned>() == 300u);
+
+  json b(-129);
+  CHECK_THROWS_AS(b.as_signed_integer<std::int8_t>(), std::invalid_argument);
+  CHECK_FALSE(b.try_as_signed_integer<std::int8_t>().has_value());
+  CHECK(b.try_as_signed_integer<int>() == -129);
+
+  // converting accessors may throw, so they must not be noexcept
+  static_assert(!noexcept(a.as_unsigned_integer_unchecked<unsigned>()));
+  static_assert(!noexcept(b.as_signed_integer_unchecked<int>()));
+  static_assert(!noexcept(b.as_floating_point_unchecked<double>()));
+  static_assert(!noexcept(b.as_boolean_unchecked()));
+  // try_as reports failure through the optional instead
+  static_assert(noexcept(a.try_as_unsigned_integer<unsigned>()));
+}
+
 TEST_CASE("number roundtrip", "[json]")
 {
   {

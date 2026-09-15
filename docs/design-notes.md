@@ -112,3 +112,30 @@ return std::string(buf);   // ← ptr を使っていない
   コンパイル時間・可読性の両面で筋が悪く、範囲判定（`c <= 0x1F`）を行う
   述語パーサを導入する余地がある（今回はスコープ外、将来の判断として記録）
 
+## 2026-09-15: バグ修正 + 設計判断 — 偽りの `noexcept` と try_as の失敗セマンティクス
+
+変換系アクセサ `as_boolean_unchecked` / `as_*_integer_unchecked<T>` /
+`as_floating_point_unchecked<T>` が `noexcept` だったが、内部の
+`deserializer::deserialize` は `from_chars` 失敗時に `std::invalid_argument` を投げる。
+kind が一致していてもオーバーフローは起きる（`json(300u)` を `uint8_t` で読む等）ので、
+これは前提条件違反ではなくデータ依存の正常系エラー。実測: `json a(300u);`
+`a.as_unsigned_integer<uint8_t>()` は catch 不能の `std::terminate`（exit 134）になった。
+
+判断:
+
+- **`unchecked` の意味を「kind 検査を省く」に限定**し、変換失敗は throw で報告する。
+  よって変換系 4 つから `noexcept` を除去（`static_assert(!noexcept(...))` で固定）。
+  却下案: 「unchecked = 全部 UB」路線。オーバーフローは呼び出し側が事前検査しづらく
+  （字句を自前パースするしかない）、UB にする利益が薄い
+- **`try_as_*` は「kind 不一致 or 変換失敗 → nullopt」** に統一し、`noexcept` を維持。
+  実装は `try { return as_*_unchecked<T>(); } catch (...) { return nullopt; }`。
+  C++20 の constexpr 関数は try ブロックを書けるが、定数評価中に throw に到達したら
+  その時点で非定数式（= コンパイルエラー）になるだけで、従来と挙動差はない
+- `try_as_boolean` は catch なしのまま。kind == boolean なら字句は必ず
+  `"true"` / `"false"`（serializer とパーサの両方が保証）で、投げる経路が
+  不変条件上存在しないため。ここに catch を書くと「投げうる」という誤った
+  シグナルになる
+
+参考: `std::optional` を返す以上、変換失敗の「理由」は潰れる。理由が要る用途は
+throw 版 `as_*` を使う、という住み分け。
+

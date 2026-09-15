@@ -176,22 +176,22 @@ private:
   static inline constexpr private_construct_t private_construct{};
 
 public:
-  constexpr bool as_boolean_unchecked() const noexcept { return std::make_from_tuple<bool>(deserializer<bool, charT>::deserialize(std::get<0>(data_)).args); }
+  constexpr bool as_boolean_unchecked() const { return std::make_from_tuple<bool>(deserializer<bool, charT>::deserialize(std::get<0>(data_)).args); }
 
   template<class T>
-  constexpr T as_unsigned_integer_unchecked() const noexcept
+  constexpr T as_unsigned_integer_unchecked() const
   {
     return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
   }
 
   template<class T>
-  constexpr T as_signed_integer_unchecked() const noexcept
+  constexpr T as_signed_integer_unchecked() const
   {
     return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
   }
 
   template<class T>
-  constexpr T as_floating_point_unchecked() const noexcept
+  constexpr T as_floating_point_unchecked() const
   {
     return std::make_from_tuple<T>(deserializer<T, charT>::deserialize(std::get<0>(data_)).args);
   }
@@ -266,21 +266,33 @@ public:
   constexpr std::optional<T> try_as_unsigned_integer() const noexcept
   {
     if (get_kind() != json_value_kind::number_unsigned_integer) return std::nullopt;
-    return as_unsigned_integer_unchecked<T>();
+    try {
+      return as_unsigned_integer_unchecked<T>();
+    } catch (...) {
+      return std::nullopt;
+    }
   }
 
   template<class T>
   constexpr std::optional<T> try_as_signed_integer() const noexcept
   {
     if (get_kind() != json_value_kind::number_signed_integer) return std::nullopt;
-    return as_signed_integer_unchecked<T>();
+    try {
+      return as_signed_integer_unchecked<T>();
+    } catch (...) {
+      return std::nullopt;
+    }
   }
 
   template<class T>
   constexpr std::optional<T> try_as_floating_point() const noexcept
   {
     if (get_kind() != json_value_kind::number_floating_point) return std::nullopt;
-    return as_floating_point_unchecked<T>();
+    try {
+      return as_floating_point_unchecked<T>();
+    } catch (...) {
+      return std::nullopt;
+    }
   }
 
   constexpr std::optional<std::basic_string<charT>> try_as_string() const noexcept
