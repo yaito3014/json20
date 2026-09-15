@@ -266,21 +266,21 @@ public:
   constexpr std::optional<T> try_as_unsigned_integer() const noexcept
   {
     if (get_kind() != json_value_kind::number_unsigned_integer) return std::nullopt;
-    return as_unsigned_integer_unchecked();
+    return as_unsigned_integer_unchecked<T>();
   }
 
   template<class T>
   constexpr std::optional<T> try_as_signed_integer() const noexcept
   {
     if (get_kind() != json_value_kind::number_signed_integer) return std::nullopt;
-    return as_signed_integer_unchecked();
+    return as_signed_integer_unchecked<T>();
   }
 
   template<class T>
   constexpr std::optional<T> try_as_floating_point() const noexcept
   {
     if (get_kind() != json_value_kind::number_floating_point) return std::nullopt;
-    return as_floating_point_unchecked();
+    return as_floating_point_unchecked<T>();
   }
 
   constexpr std::optional<std::basic_string<charT>> try_as_string() const noexcept

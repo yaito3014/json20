@@ -107,6 +107,25 @@ TEST_CASE("emplace", "[json]")
   CHECK(a.at("foo").as_object().empty());
 }
 
+TEST_CASE("try_as", "[json]")
+{
+  json a(42u);
+  CHECK(a.try_as_unsigned_integer<unsigned>() == 42u);
+  CHECK_FALSE(a.try_as_signed_integer<int>().has_value());
+  CHECK_FALSE(a.try_as_boolean().has_value());
+
+  json b(-42);
+  CHECK(b.try_as_signed_integer<int>() == -42);
+  CHECK_FALSE(b.try_as_unsigned_integer<unsigned>().has_value());
+
+  json c(3.25);
+  CHECK(c.try_as_floating_point<double>() == 3.25);
+  CHECK_FALSE(c.try_as_signed_integer<int>().has_value());
+
+  json d(true);
+  CHECK(d.try_as_boolean() == true);
+}
+
 TEST_CASE("number roundtrip", "[json]")
 {
   {

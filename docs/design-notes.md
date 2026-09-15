@@ -86,3 +86,16 @@ return std::string(buf);   // ← ptr を使っていない
 全アクセサが壊れる。roundtrip テスト（INT64_MIN / UINT64_MAX / double max / 0.1）と
 字句そのものの検査（`as_string_unchecked() == "42"`）を追加した。
 
+## 2026-09-15: バグ修正 — `try_as_*` がテンプレート実引数なしで `as_*_unchecked()` を呼ぶ
+
+`try_as_unsigned_integer<T>` / `try_as_signed_integer<T>` / `try_as_floating_point<T>` の
+内部が `as_unsigned_integer_unchecked()` のように `<T>` なしで委譲していた。
+戻り値型からはテンプレート引数を推論できないため、インスタンス化した瞬間に
+コンパイルエラー（GCC 14.2: "couldn't deduce template parameter 'T'"）。
+
+- 既存テストが `try_as_*` を一度も呼んでいなかったため未発覚。
+  「テンプレートはインスタンス化されるまでコンパイルされない」の実例
+- 修正は `<T>` を明示するだけ。`try_as_*` 全種を通すテストを追加した
+- この修正テストが serializer バグ（前項）を掘り当てた。テストの網を広げると
+  隣のバグが引っかかる、という点も記事メモとして残す
+
