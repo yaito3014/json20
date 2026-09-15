@@ -399,7 +399,10 @@ public:
   template<class charT2>
   friend class basic_json_visitor;
 
-  constexpr basic_json() : kind_(json_value_kind::object), data_(std::in_place_index<2>) {}
+  constexpr basic_json()
+      : kind_(json_value_kind::null), data_(std::in_place_index<0>, std::basic_string_view<charT>(YK_JSON20_WIDEN_STRING(charT, "null")))
+  {
+  }
 
   constexpr basic_json(bool x) : kind_(json_value_kind::boolean), data_(std::in_place_index<0>, serializer<bool, charT>::serialize(x)) {}
 
@@ -485,7 +488,11 @@ public:
   {
   }
 
+  static constexpr basic_json array() { return basic_json(private_construct, json_value_kind::array, std::in_place_index<1>); }
+
   static constexpr basic_json array(std::initializer_list<basic_json> il) { return basic_json(std::move(il)); }
+
+  static constexpr basic_json object() { return basic_json(private_construct, json_value_kind::object, std::in_place_index<2>); }
 
   static constexpr basic_json object(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il) { return basic_json(std::move(il)); }
 

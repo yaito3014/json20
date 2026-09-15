@@ -167,3 +167,35 @@ kind 不一致の検査をしたいだけで部分木全体の深いコピーが
 備考: 非 const 版（`T*` 返し）は現状 `as_*` 側にも存在しないため追加せず、
 mutable アクセスの設計はまとめて別判断とする。
 
+## 2026-09-15: 設計判断 — デフォルト構築は null（空 object をやめる）
+
+旧: `json a;` は空 object だった。決め手は `operator[](std::size_t)` の自動拡張:
+`vec.resize(idx + 1)` はデフォルト値で隙間を埋めるため、`a[3] = 1` とすると
+`a[0..2]` が `{}`（空 object）になっていた。JSON の意味論では未設定要素は null であるべきで
+（JavaScript の sparse array も、nlohmann::json の同じ操作も null で埋める）、
+「デフォルト構築 = 空 object」は resize の埋め値という形で観測可能な嘘になっていた。
+
+検討した選択肢:
+
+1. **null にする（採用）** — JSON の意味論と一致。`resize` の埋め値がそのまま正しくなる。
+   表現は kind = null + 字句 `"null"`（index 0 の文字列スロット）。パーサの
+   `on_null` が作る表現と完全に同一なので、構築経路による差が生じない
+2. 空 object を維持し `resize` の埋め値だけ null を明示 — 「デフォルトは object だが
+   配列拡張の埋めは null」という二重基準になり、説明が一段複雑になる。却下
+3. nlohmann 流: null のまま `operator[]` を許し object へ暗黙昇格 — 書き味は良いが、
+   本ライブラリは「kind 不一致は常に throw」の厳格路線。ここだけ暗黙変換を入れると
+   規則が「throw、ただし null は例外」になる。タイプミスした `j["typo"]["x"] = 1` が
+   静かに構造を作ってしまう事故も含めて却下（`operator[]` は null に対しても throw）
+
+随伴する変更:
+
+- `json::object()` / `json::array()` の引数なし静的ファクトリを追加。
+  「空 object が欲しい」の受け皿はデフォルト構築ではなくこちら
+  （`json::object({})` でも同じものは作れるが、意図の表明として引数なし版を用意）
+- `insert("foo", json{})` / `emplace("foo")` の結果は null になる
+  （旧: 空 object）。「値を後で決める」プレースホルダの意味論としても null が自然
+- `json{}` は空 init-list 扱いではなくデフォルト構築（C++ の規則どおり）なので null
+
+破壊的変更: 旧コードの `json a; a.insert(...)` は `bad_json_access` を投げるようになる。
+移行は `json a = json::object();`。
+

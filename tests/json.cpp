@@ -10,8 +10,20 @@ using json = yk::json20::basic_json<char>;
 TEST_CASE("ctor", "[json]")
 {
   {
+    // a default-constructed json is null, not an empty object
     json a;
+    CHECK(a.get_kind() == yk::json20::json_value_kind::null);
+    CHECK_THROWS_AS(a.as_object(), yk::json20::bad_json_access);
+  }
+  {
+    json a = json::object();
+    CHECK(a.get_kind() == yk::json20::json_value_kind::object);
     CHECK(a.as_object().empty());
+  }
+  {
+    json a = json::array();
+    CHECK(a.get_kind() == yk::json20::json_value_kind::array);
+    CHECK(a.as_array().empty());
   }
   {
     json a(true);
@@ -66,7 +78,7 @@ TEST_CASE("ctor", "[json]")
 TEST_CASE("assignment", "[json]")
 {
   json a;
-  CHECK(a.as_object().empty());
+  CHECK(a.get_kind() == yk::json20::json_value_kind::null);
   a = 42u;
   CHECK(a.as_unsigned_integer<unsigned>() == 42u);
   a = 42;
@@ -89,22 +101,36 @@ TEST_CASE("subscript", "[json]")
   json a = json::array({});
   a[0] = 42;
   CHECK(a.at(0).as_signed_integer<signed>() == 42);
+
+  // growing the array fills the gap with null, per JSON semantics
+  a[3] = 1;
+  CHECK(a.at(1).get_kind() == yk::json20::json_value_kind::null);
+  CHECK(a.at(2).get_kind() == yk::json20::json_value_kind::null);
+  CHECK(a.at(3).as_signed_integer<signed>() == 1);
+
+  // no implicit null -> object promotion: kind mismatch always throws
+  CHECK_THROWS_AS(a[1]["foo"], yk::json20::bad_json_access);
+  json n;
+  CHECK_THROWS_AS(n["foo"], yk::json20::bad_json_access);
+  CHECK_THROWS_AS(n[0], yk::json20::bad_json_access);
+
+  a[1] = json::object();
   a[1]["foo"] = 42;
   CHECK(a.at(1).at("foo").as_signed_integer<signed>() == 42);
 }
 
 TEST_CASE("insert", "[json]")
 {
-  json a;
+  json a = json::object();
   a.insert("foo", json{});
-  CHECK(a.at("foo").as_object().empty());
+  CHECK(a.at("foo").get_kind() == yk::json20::json_value_kind::null);
 }
 
 TEST_CASE("emplace", "[json]")
 {
-  json a;
+  json a = json::object();
   a.emplace("foo");
-  CHECK(a.at("foo").as_object().empty());
+  CHECK(a.at("foo").get_kind() == yk::json20::json_value_kind::null);
 }
 
 TEST_CASE("try_as", "[json]")
