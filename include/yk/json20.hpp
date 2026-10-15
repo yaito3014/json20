@@ -827,9 +827,6 @@ private:
     vis.member(normal_arg);                                             \
   }
 
-#define YK_JSON20_INVOKE_VISITOR_SELECTER(_1, _2, _3, _4, _5, ...) _5
-#define YK_JSON20_INVOKE_VISITOR(...) \
-  YK_JSON20_INVOKE_VISITOR_SELECTER(__VA_ARGS__, YK_JSON20_INVOKE_VISITOR_ARG4, YK_JSON20_INVOKE_VISITOR_ARG3, YK_JSON20_INVOKE_VISITOR_ARG2)(__VA_ARGS__)
 
   template<class Visitor>
   static constexpr parse_result parse_null(Visitor& vis, std::basic_string_view<charT> str) noexcept
@@ -838,7 +835,7 @@ private:
 
     auto res = lit(null_string)(str);
     if (res.match) {
-      YK_JSON20_INVOKE_VISITOR(vis, on_null, *res.match, *res.match)
+      YK_JSON20_INVOKE_VISITOR_ARG4(vis, on_null, *res.match, *res.match)
     }
     return res;
   }
@@ -851,7 +848,7 @@ private:
 
     auto res = alt(lit(true_string), lit(false_string))(str);
     if (res.match) {
-      YK_JSON20_INVOKE_VISITOR(vis, on_boolean, *res.match, *res.match)
+      YK_JSON20_INVOKE_VISITOR_ARG4(vis, on_boolean, *res.match, *res.match)
     }
     return res;
   }
@@ -907,11 +904,11 @@ private:
       std::basic_string_view<charT> match = consumed(str, rest);
 
       if (has_frac || has_exp) {
-        YK_JSON20_INVOKE_VISITOR(vis, on_number_floating_point, match, match);
+        YK_JSON20_INVOKE_VISITOR_ARG4(vis, on_number_floating_point, match, match);
       } else if (has_minus_sign) {
-        YK_JSON20_INVOKE_VISITOR(vis, on_number_signed_integer, match, match);
+        YK_JSON20_INVOKE_VISITOR_ARG4(vis, on_number_signed_integer, match, match);
       } else {
-        YK_JSON20_INVOKE_VISITOR(vis, on_number_unsigned_integer, match, match);
+        YK_JSON20_INVOKE_VISITOR_ARG4(vis, on_number_unsigned_integer, match, match);
       }
 
       return {match, rest};
@@ -929,14 +926,14 @@ private:
 
     auto const parser = seq(lit(open_bracket), alt(sep_by(bind_visitor(parse_value<Visitor>, vis), lit(comma)), ws), lit(close_bracket));
 
-    YK_JSON20_INVOKE_VISITOR(vis, on_array_start)
+    YK_JSON20_INVOKE_VISITOR_ARG2(vis, on_array_start)
     auto res = parser(str);
     if (res.match) {
       std::basic_string_view<charT> match = consumed(str, res.rest);
-      YK_JSON20_INVOKE_VISITOR(vis, on_array_finalize, match)
+      YK_JSON20_INVOKE_VISITOR_ARG3(vis, on_array_finalize, match)
       return {match, res.rest};
     }
-    YK_JSON20_INVOKE_VISITOR(vis, on_array_abort)
+    YK_JSON20_INVOKE_VISITOR_ARG2(vis, on_array_abort)
     return {std::nullopt, str};
   }
 
@@ -997,7 +994,7 @@ private:
       decoded = decode_string(body);
       content = decoded;
     }
-    YK_JSON20_INVOKE_VISITOR(vis, on_string, content, match)
+    YK_JSON20_INVOKE_VISITOR_ARG4(vis, on_string, content, match)
     return {match, res3.rest};
   }
 
@@ -1058,14 +1055,14 @@ private:
         seq(ws, bind_visitor(parse_string<Visitor>, vis), ws, lit(colon), bind_visitor(parse_value<Visitor>, vis));
     auto const parser = seq(lit(open_brace), alt(sep_by(key_value_parser, lit(comma)), ws), lit(close_brace));
 
-    YK_JSON20_INVOKE_VISITOR(vis, on_object_start)
+    YK_JSON20_INVOKE_VISITOR_ARG2(vis, on_object_start)
     auto res = parser(str);
     if (res.match) {
       std::basic_string_view<charT> match = consumed(str, res.rest);
-      YK_JSON20_INVOKE_VISITOR(vis, on_object_finalize, match)
+      YK_JSON20_INVOKE_VISITOR_ARG3(vis, on_object_finalize, match)
       return {match, res.rest};
     }
-    YK_JSON20_INVOKE_VISITOR(vis, on_object_abort)
+    YK_JSON20_INVOKE_VISITOR_ARG2(vis, on_object_abort)
     return {std::nullopt, str};
   }
 
