@@ -729,3 +729,62 @@ Clang 21 + libc++ 21 では、`static_assert(json{}.get_kind() == json_value_kin
 | libc++ 21 | **通る** |
 
 「constexpr パースの到達点」を考えるときの前提が変わる: Clang でも libc++ を使えば、DOM の定数式構築まで届く。
+
+## 2026-10-15: 調査 — 数値変換を自前で実装するためのアルゴリズム（方針は未決定）
+
+発端: Codex のレビュー（PR #1）で、EBCDIC では数値の読み出しが動かないと指摘された（整数はコンパイルできず、
+浮動小数点は例外）。作者の判断で、数値変換を自前で実装することにした。
+
+json20 固有の条件:
+
+1. **charT に依存しない**（char / wchar_t / char8_t / char16_t / char32_t）
+2. **文字コードに依存しない**（EBCDIC を含む）。数字は翻訳されたリテラル `'0'` からの差で扱う。
+   `'0'`〜`'9'` が連続していることは規格が保証している
+3. **C++20 で constexpr にできる**（`checked_string` の先にある「定数式でのパース」のため）
+4. 外部依存なし。数値表などは自前のスクリプトで生成する
+
+### 文字列 → 浮動小数点（パース）
+
+- **Clinger の高速経路**: 仮数が 2^53 以下で、10 の指数の絶対値が 22 以下なら、double の乗算 / 除算 1 回で
+  正確に求まる。JSON の数値の大半はここで終わる
+- **Eisel-Lemire**（Lemire, "Number Parsing at a Gigabyte per Second", 2021）: 5 の累乗の 128 ビット近似表
+  （約 650 項目、約 10 KB）と 64×64→128 ビットの乗算 1〜2 回。GCC の libstdc++、LLVM の libc++ の
+  `from_chars` が採用している（fast_float の README による）
+- **Mushtak と Lemire, "Fast Number Parsing Without Fallback"（2023）**: 有効数字が 19 桁以内（64 ビットに
+  収まる）なら、Eisel-Lemire の 128 ビット積は**常に**正しい丸めの判定に十分であることを証明した。
+  fast_float のソースにも「The computed 'product' is always sufficient」とこの論文を引いたコメントがある
+- 補正が必要なのは 20 桁以上の入力だけ（切り捨てた仮数 w と w+1 で結果が変わる場合）。fast_float はここで
+  多倍長整数による桁の比較を行う（`bigint.h` + `digit_comparison.h` で約 1,100 行）
+- **fast_float は C++20 で constexpr、UTF-16/32 にも対応しているが、EBCDIC では動かない**。8 桁を一度に
+  処理する高速化（SWAR）で `0x3030303030303030`（ASCII の `'0'` を 8 個並べた値）を直書きしている
+  （`ascii_number.h`）。仮に取り込むとしても、この部分は書き換えが必要
+
+### 浮動小数点 → 最短文字列（シリアライズ）
+
+| アルゴリズム | 特徴 | json20 から見た評価 |
+|---|---|---|
+| Ryū（Adams, 2018） | 表が大きい。MSVC STL / libstdc++ の `to_chars` が採用 | 後発に速度で劣る |
+| Schubfach（Giulietti, 2017-2018） | 証明つき。Java 19 以降が採用。Dragonbox と Żmij の土台 | 単純で移植しやすい |
+| Dragonbox（Jeon, 2020） | 最短・正しい丸め・往復保証。**C++20 ですべての関数が constexpr**（README）。表は通常 9,904 バイト、圧縮版なら 584 バイト（約 20% 遅い）。数字の表が文字リテラル `{'0', '0'}, …` なので EBCDIC でも翻訳される | 第一候補。ただし本体は方針指定（policy）のテンプレートが多く、作者自身が移植には簡易版（約 1,500 行）を勧めている |
+| Żmij（Zverovich ほか, 2025-2026） | 最速（README によると Ryū の 3.8〜7 倍）。Lean で形式検証済み。Schubfach 系 | 速さの多くは SIMD と、文字を 64 ビット整数に詰める処理（バイト順と ASCII の前提）から来ている。charT・EBCDIC・constexpr の条件ではその部分を使えない |
+| yy（Guo / ibireme） | Schubfach 系で、10 の累乗との乗算が 1 回で済む | 独立した検証を確認できなかった |
+
+### 整数
+
+- パース: 1 桁ずつのループ（`c - '0'`）と桁あふれの検査。SWAR は ASCII 前提かつ文字幅ごとの実装が必要なので
+  使わない。JSON の整数は高々 20 桁なので、ループの費用は小さい
+- 出力: 2 桁ずつの表を文字列リテラル `"00010203…99"` で持てば、`YK_JSON20_WIDEN_STRING` で charT ごとに
+  用意でき、EBCDIC でもコンパイラが翻訳する
+
+### 表を共有できる可能性
+
+Eisel-Lemire が使う 5^q の正規化した 128 ビット近似と、Schubfach / Dragonbox が使う 10^k の近似は、
+2 の累乗の違いを除けば同じ数（10^k = 5^k × 2^k）なので、1 つの表を共有できる可能性がある。ただし丸め方向
+（切り捨てか切り上げか）の要件が違う項目があるので、実装時に確かめる必要がある。
+
+### 情報源についての注意
+
+この作業環境からは GitHub 以外のサイト（arXiv、著者のブログ）に接続できなかった。上の記述は各実装の README と
+ソースコード（fast_float、Dragonbox、Żmij）、および検索結果の要約に基づく。2026 年の比較論文
+（arXiv 2603.06581、"Converting Binary Floating-Point Numbers to Shortest Decimal Strings: An Experimental Review"）
+の本文は未読。
