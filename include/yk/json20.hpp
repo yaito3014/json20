@@ -255,6 +255,19 @@ enum class json_value_kind {
 
 class bad_json_access : public std::exception {};
 
+// What building a DOM does when an object repeats a key. The parser itself
+// passes every member to the visitor; the policy only decides which one
+// basic_json keeps, so every basic_json has unique keys whatever was chosen.
+enum class duplicate_key_policy {
+  reject,
+  first_wins,
+  last_wins,
+};
+
+struct parse_options {
+  duplicate_key_policy duplicate_keys = duplicate_key_policy::reject;
+};
+
 namespace detail {
 
 // maps a semantic kind onto its storage alternative: every scalar kind keeps
@@ -512,6 +525,36 @@ public:
     return true;
   }
 
+private:
+  using object_type = std::vector<std::pair<std::basic_string<charT>, basic_json>>;
+
+  // Sorts members by key and keeps one member per key: the first or the last
+  // in input order. Returns whether any key occurred more than once.
+  // Input order breaks ties explicitly because std::stable_sort is not
+  // constexpr before C++26.
+  static constexpr bool normalize_object(object_type& members, bool keep_last)
+  {
+    std::vector<std::size_t> order(members.size());
+    for (std::size_t i = 0; i < order.size(); ++i) order[i] = i;
+    std::ranges::sort(order, [&](std::size_t a, std::size_t b) {
+      auto const c = members[a].first.compare(members[b].first);
+      return c < 0 || (c == 0 && a < b);
+    });
+
+    bool duplicated = false;
+    object_type result;
+    result.reserve(members.size());
+    for (std::size_t i = 0; i < order.size();) {
+      std::size_t j = i + 1;
+      while (j < order.size() && members[order[j]].first == members[order[i]].first) ++j;
+      duplicated = duplicated || j - i > 1;
+      result.push_back(std::move(members[keep_last ? order[j - 1] : order[i]]));
+      i = j;
+    }
+    members = std::move(result);
+    return duplicated;
+  }
+
 public:
   template<class charT2>
   friend class basic_json_visitor;
@@ -549,7 +592,7 @@ public:
   constexpr basic_json(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il)
       : basic_json(kind_construct_t<json_value_kind::object>{}, il)
   {
-    std::ranges::sort(std::get<2>(data_), {}, &std::pair<std::basic_string<charT>, basic_json>::first);
+    if (normalize_object(std::get<2>(data_), false)) throw std::invalid_argument("duplicate key in object");
   }
 
   template<std::unsigned_integral UInt>
@@ -589,8 +632,9 @@ public:
 
   constexpr basic_json& operator=(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il)
   {
-    emplace_kind<json_value_kind::object>(il);
-    std::ranges::sort(std::get<2>(data_), {}, &std::pair<std::basic_string<charT>, basic_json>::first);
+    object_type members(il);
+    if (normalize_object(members, false)) throw std::invalid_argument("duplicate key in object");
+    emplace_kind<json_value_kind::object>(std::move(members));
     return *this;
   }
 
@@ -604,7 +648,7 @@ public:
 
 private:
   json_value_kind kind_;
-  std::variant<std::basic_string<charT>, std::vector<basic_json>, std::vector<std::pair<std::basic_string<charT>, basic_json>>> data_;
+  std::variant<std::basic_string<charT>, std::vector<basic_json>, object_type> data_;
 };
 
 using json = basic_json<char>;
@@ -616,6 +660,9 @@ using u32json = basic_json<char32_t>;
 template<class charT>
 class basic_json_visitor {
 public:
+  constexpr basic_json_visitor() = default;
+  constexpr explicit basic_json_visitor(parse_options options) noexcept : options_(options) {}
+
   constexpr void on_null(std::basic_string_view<charT> str)
   {
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::template make<json_value_kind::null>(str.begin(), str.end()));
@@ -666,7 +713,8 @@ public:
     for (auto j = i; j != stack_.end(); j += 2) {
       vec.emplace_back(std::get<basic_json<charT>>(*j).as_string(), std::get<basic_json<charT>>(*(j + 1)));
     }
-    std::ranges::sort(vec, {}, &std::pair<std::basic_string<charT>, basic_json<charT>>::first);
+    bool const duplicated = basic_json<charT>::normalize_object(vec, options_.duplicate_keys == duplicate_key_policy::last_wins);
+    if (duplicated && options_.duplicate_keys == duplicate_key_policy::reject) has_rejected_duplicate_key_ = true;
     stack_.erase(i - 1, stack_.end());
     stack_.emplace_back(std::in_place_index<1>, basic_json<charT>::template make<json_value_kind::object>(std::move(vec)));
   }
@@ -682,9 +730,16 @@ public:
     return std::get<basic_json<charT>>(stack_.back());
   }
 
+  // Set when an object repeated a key under duplicate_key_policy::reject.
+  // The DOM is still built (keeping the first member) so get() stays valid,
+  // but parse() and try_parse() treat the input as rejected.
+  constexpr bool has_rejected_duplicate_key() const noexcept { return has_rejected_duplicate_key_; }
+
 private:
   struct start_tag {};
   std::vector<std::variant<start_tag, basic_json<charT>>> stack_;
+  parse_options options_{};
+  bool has_rejected_duplicate_key_ = false;
 };
 
 using json_visitor = basic_json_visitor<char>;
@@ -1177,17 +1232,20 @@ private:
   }
 
 public:
-  static constexpr basic_json<charT> parse(std::basic_string_view<charT> str)
+  static constexpr basic_json<charT> parse(std::basic_string_view<charT> str, parse_options options = {})
   {
-    basic_json_visitor<charT> vis;
-    if (auto res = parse_value(vis, str)) return vis.get();
+    basic_json_visitor<charT> vis(options);
+    if (auto res = parse_value(vis, str)) {
+      if (vis.has_rejected_duplicate_key()) throw std::invalid_argument("duplicate key in JSON object");
+      return vis.get();
+    }
     throw std::invalid_argument("invalid JSON");
   }
 
-  static constexpr std::optional<basic_json<charT>> try_parse(std::basic_string_view<charT> str) noexcept
+  static constexpr std::optional<basic_json<charT>> try_parse(std::basic_string_view<charT> str, parse_options options = {}) noexcept
   {
-    basic_json_visitor<charT> vis;
-    if (auto res = parse_value(vis, str)) return vis.get();
+    basic_json_visitor<charT> vis(options);
+    if (auto res = parse_value(vis, str); res && !vis.has_rejected_duplicate_key()) return vis.get();
     return std::nullopt;
   }
 
@@ -1230,6 +1288,9 @@ struct basic_noop_visitor {
   constexpr void on_object_abort() noexcept {}
 };
 
+// Guarantees that the literal is RFC 8259 JSON syntax. Duplicate keys are
+// syntactically valid, so they are not checked here; building a DOM decides
+// about them (see parse_options).
 template<class charT>
 class basic_checked_string {
 public:

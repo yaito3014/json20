@@ -2,6 +2,10 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <algorithm>
+#include <string>
+#include <utility>
+
 using json_parser = yk::json20::basic_json_parser<char>;
 
 TEST_CASE("null", "[parse]")
@@ -250,6 +254,79 @@ TEST_CASE("object", "[parse]")
     const auto x = json_parser::parse("{\"foo\":1234}");
     CHECK((x.get_kind() == yk::json20::json_value_kind::object));
     CHECK(x.at("foo").as_unsigned_integer<unsigned>() == 1234);
+  }
+}
+
+TEST_CASE("duplicate keys", "[parse]")
+{
+  // rejected by default, at any depth
+  CHECK_THROWS_AS(json_parser::parse("{\"a\":1,\"a\":2}"), std::invalid_argument);
+  CHECK_FALSE(json_parser::try_parse("{\"a\":1,\"a\":2}").has_value());
+  CHECK_FALSE(json_parser::try_parse("[{\"a\":1,\"a\":2}]").has_value());
+  CHECK_FALSE(json_parser::try_parse("{\"x\":{\"a\":1,\"a\":2}}").has_value());
+
+  // keys are compared after unescaping: "\/" is "/"
+  CHECK_FALSE(json_parser::try_parse("{\"/\":1,\"\\/\":2}").has_value());
+
+  // the same key in different objects is not a duplicate
+  CHECK(json_parser::try_parse("[{\"a\":1},{\"a\":2}]").has_value());
+
+  // checked_string validates syntax only, and duplicates are grammatical
+  static_assert(accepts("{\"a\":1,\"a\":2}"));
+}
+
+TEST_CASE("duplicate key policies", "[parse]")
+{
+  using yk::json20::duplicate_key_policy;
+  constexpr yk::json20::parse_options first{.duplicate_keys = duplicate_key_policy::first_wins};
+  constexpr yk::json20::parse_options last{.duplicate_keys = duplicate_key_policy::last_wins};
+
+  {
+    auto const x = json_parser::parse("{\"a\":1,\"b\":0,\"a\":2}", first);
+    CHECK(x.as_object().size() == 2);
+    CHECK(x.at("a").as_unsigned_integer<unsigned>() == 1);
+  }
+  {
+    auto const x = json_parser::parse("{\"a\":1,\"b\":0,\"a\":2}", last);
+    CHECK(x.as_object().size() == 2);
+    CHECK(x.at("a").as_unsigned_integer<unsigned>() == 2);
+  }
+  CHECK(json_parser::try_parse("{\"a\":1,\"a\":2}", last).has_value());
+
+  // many copies of one key interleaved with others: the sort used to leave
+  // their order unspecified, and at() picked a different one per library
+  for (unsigned n : {4u, 17u, 40u, 100u}) {
+    std::string s = "{";
+    for (unsigned i = 0; i < n; ++i) {
+      if (i) s += ",";
+      s += "\"" + std::string(i % 2 ? "z" : "a") + std::to_string(i) + "\":0,\"k\":" + std::to_string(i);
+    }
+    s += "}";
+    CAPTURE(n);
+    auto const x = json_parser::parse(s, first);
+    auto const y = json_parser::parse(s, last);
+    CHECK(x.at("k").as_unsigned_integer<unsigned>() == 0);
+    CHECK(y.at("k").as_unsigned_integer<unsigned>() == n - 1);
+    CHECK(x.as_object().size() == n + 1);
+    CHECK(std::ranges::is_sorted(x.as_object(), {}, &std::pair<std::string, yk::json20::json>::first));
+
+    // one member per key, so erasing a key really removes it
+    auto z = y;
+    CHECK(z.erase("k"));
+    CHECK(z.try_at("k") == nullptr);
+  }
+
+  // the DOM visitor takes the same options
+  {
+    yk::json20::json_visitor vis(last);
+    json_parser::parse(vis, "{\"a\":1,\"a\":2}");
+    CHECK_FALSE(vis.has_rejected_duplicate_key());
+    CHECK(vis.get().at("a").as_unsigned_integer<unsigned>() == 2);
+  }
+  {
+    yk::json20::json_visitor vis;
+    json_parser::parse(vis, "{\"a\":1,\"a\":2}");
+    CHECK(vis.has_rejected_duplicate_key());
   }
 }
 

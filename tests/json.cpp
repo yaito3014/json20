@@ -136,6 +136,19 @@ TEST_CASE("emplace", "[json]")
   CHECK(a.at("foo").get_kind() == yk::json20::json_value_kind::null);
 }
 
+TEST_CASE("object duplicate keys", "[json]")
+{
+  // duplicates written in source are always a mistake
+  CHECK_THROWS_AS(json::object({{"a", 1}, {"a", 2}}), std::invalid_argument);
+  CHECK_THROWS_AS((json{std::pair{"a", 1}, {"a", 2}}), std::invalid_argument);
+
+  // a rejected assignment leaves the target untouched
+  json a = json::object({{"x", 1}});
+  CHECK_THROWS_AS((a = {std::pair{"a", 1}, {"a", 2}}), std::invalid_argument);
+  CHECK(a.as_object().size() == 1);
+  CHECK(a.at("x").as_signed_integer<int>() == 1);
+}
+
 TEST_CASE("try_as", "[json]")
 {
   json a(42u);
