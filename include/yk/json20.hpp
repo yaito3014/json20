@@ -882,8 +882,10 @@ private:
     auto const parse_dot = lit(YK_JSON20_WIDEN_STRING(charT, "."));
     auto const parse_e = alt(lit(YK_JSON20_WIDEN_STRING(charT, "e")), lit(YK_JSON20_WIDEN_STRING(charT, "E")));
 
-    auto const parse_frac = seq(parse_dot, many(parse0to9));
-    auto const parse_exp = seq(parse_e, opt(parse_sign), many(parse0to9));
+    auto const parse_digits = seq(parse0to9, many(parse0to9));
+
+    auto const parse_frac = seq(parse_dot, parse_digits);
+    auto const parse_exp = seq(parse_e, opt(parse_sign), parse_digits);
 
     auto const res1 = parse_minus(str);
     bool const has_minus_sign = bool(res1.match);
@@ -915,7 +917,7 @@ private:
 
       return {match, rest};
     } else {
-      return {std::nullopt, res2.rest};
+      return {std::nullopt, str};
     }
   }
 
