@@ -6,8 +6,8 @@ so JSON can be validated and read at compile time as well as at run time.
 - **Compile-time JSON**: `checked_string` rejects a malformed JSON literal at compile time, and
   parsing and DOM access can run inside constant expressions
 - **Every character type**: `char`, `wchar_t`, `char8_t`, `char16_t` and `char32_t`. The grammar
-  is written in terms of code points, so parsing also works under non-ASCII execution character
-  sets such as EBCDIC
+  is written in terms of code points, so parsing and number conversion also work under non-ASCII
+  execution character sets such as EBCDIC
 - **Strict**: input must be RFC 8259 JSON, a DOM rejects duplicate object keys by default, and
   accessors never convert between kinds
 - **No dependencies**: a single header, `<yk/json20.hpp>`
@@ -88,6 +88,23 @@ which value to keep:
 json_parser::parse(R"({"a": 1, "a": 2})",
                    {.duplicate_keys = duplicate_key_policy::last_wins});  // {"a": 2}
 ```
+
+## Numbers
+
+json20 converts integers and floating-point numbers itself instead of using `std::from_chars` /
+`std::to_chars`, so conversion works for every character type, under EBCDIC, and in constant
+expressions. Results match the standard functions: parsing rounds correctly, and output is the
+shortest text that reads back to the same value.
+
+```cpp
+json const x = 0.1;                                       // stored as "0.1"
+json_parser::parse("1e400").as_floating_point<double>();  // throws std::invalid_argument: out of range
+json(std::numeric_limits<double>::infinity());            // throws std::invalid_argument
+```
+
+JSON has no infinity or NaN, so constructing or assigning them throws; encode them yourself if
+needed, for example as `json()` (null) or a string. `long double` still uses the standard
+functions and supports `char` only.
 
 ## Other character types
 
