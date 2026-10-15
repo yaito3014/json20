@@ -25,7 +25,6 @@ target_sources(
 if(PROJECT_IS_TOP_LEVEL)
     enable_testing()
     add_subdirectory(tests)
-    add_subdirectory(bench/pow5_table)
 endif()
 
 add_library(yk::json20 ALIAS json20)
