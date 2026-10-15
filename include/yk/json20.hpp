@@ -87,9 +87,7 @@ struct select_str<char32_t, Str, WStr, U8Str, U16Str, U32Str> {
 
 namespace detail::number {
 
-// ---------------------------------------------------------------------------
 // 128-bit arithmetic
-// ---------------------------------------------------------------------------
 
 struct u128 {
   std::uint64_t hi;
@@ -117,14 +115,12 @@ constexpr u128 umul128(std::uint64_t a, std::uint64_t b) noexcept
 #endif
 }
 
-// ---------------------------------------------------------------------------
 // Powers of five
 //
 // F(q) is 5^q scaled into [2^127, 2^128) and rounded down, q in [-342, 326].
 // Every table the conversions need derives from it (see
 // tools/gen_pow5_table.py): every 27th F is stored, and the rest is recovered
 // as the top 128 bits of base * 5^offset plus a 2-bit correction.
-// ---------------------------------------------------------------------------
 
 struct pow5 {
   static constexpr int q_min = -342;
@@ -226,9 +222,7 @@ struct pow5 {
   }
 };
 
-// ---------------------------------------------------------------------------
 // IEEE-754 formats
-// ---------------------------------------------------------------------------
 
 template<class Float>
 struct ieee754;
@@ -282,7 +276,6 @@ struct adjusted_mantissa {
   friend constexpr bool operator==(adjusted_mantissa, adjusted_mantissa) = default;
 };
 
-// ---------------------------------------------------------------------------
 // Decimal to binary: Eisel-Lemire
 //
 // Adapted from fast_float (https://github.com/fastfloat/fast_float),
@@ -291,7 +284,6 @@ struct adjusted_mantissa {
 // Second" (2021); N. Mushtak, D. Lemire, "Fast Number Parsing Without
 // Fallback" (2023) proves the 128-bit product always suffices for a 64-bit
 // decimal significand.
-// ---------------------------------------------------------------------------
 
 template<class Float>
 constexpr adjusted_mantissa eisel_lemire(std::int64_t q, std::uint64_t w) noexcept
@@ -347,13 +339,11 @@ constexpr adjusted_mantissa eisel_lemire(std::int64_t q, std::uint64_t w) noexce
   return answer;
 }
 
-// ---------------------------------------------------------------------------
 // Decimal to binary: exact comparison for more than 19 significant digits
 //
 // When the 19 leading digits w and w + 1 round to different floats, the
 // input lies near the midpoint between them, and only exact arithmetic on
 // all digits can tell which side.
-// ---------------------------------------------------------------------------
 
 class bigint {
 public:
@@ -489,9 +479,7 @@ constexpr adjusted_mantissa round_exactly(decimal_digits<charT> const& d, adjust
   return {next & ((std::uint64_t(1) << format::significand_bits) - 1), int(next >> format::significand_bits)};
 }
 
-// ---------------------------------------------------------------------------
 // Decimal to binary: scanning and the overall conversion
-// ---------------------------------------------------------------------------
 
 template<class Float>
 constexpr Float to_float(bool negative, adjusted_mantissa am) noexcept
@@ -593,14 +581,12 @@ constexpr std::pair<Float, std::size_t> parse_float(std::basic_string_view<charT
   return {to_float<Float>(negative, am), i};
 }
 
-// ---------------------------------------------------------------------------
 // Binary to decimal: Dragonbox
 //
 // Adapted from the simple implementation of Dragonbox
 // (https://github.com/jk-jeon/dragonbox), Copyright 2024-2025 Junekey Jeon,
 // Toby Bell, used under the Boost Software License 1.0. The caches come from
 // the shared power-of-five table instead of Dragonbox's own.
-// ---------------------------------------------------------------------------
 
 namespace dragonbox {
 
@@ -921,13 +907,11 @@ constexpr decimal_fp<typename ieee754<Float>::carrier_uint> to_decimal(Float x) 
 
 }  // namespace dragonbox
 
-// ---------------------------------------------------------------------------
 // Binary to decimal: formatting
 //
 // Same output as std::to_chars(first, last, value): the shortest round-trip
 // digits, in fixed or scientific notation whichever is shorter (fixed on a
 // tie), with an exponent of at least two digits.
-// ---------------------------------------------------------------------------
 
 // Writes the decimal digits of `value`, two at a time, so that the last one
 // lands just before `last`; returns where the first one went. The digits come
