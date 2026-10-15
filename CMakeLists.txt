@@ -44,7 +44,7 @@ if(JSON20_INSTALL)
         EXPORT json20_targets
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/json20
         FILE json20-targets.cmake
-        NAMESPACE yk
+        NAMESPACE yk::
     )
 
     configure_package_config_file(
