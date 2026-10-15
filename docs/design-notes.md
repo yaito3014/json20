@@ -245,6 +245,7 @@ static_assert((V{}, true));  // GCC 14: OK / clang 18 + libstdc++ 14: エラー
   受理するが clang のフロントエンドは定数式と認めない、という処理系間の相互運用問題
 - ランタイム動作は clang でも全テスト相当の確認で問題なし。影響は
   「`basic_json` を含む値を定数式で作る」場合のみ
+  → **2026-10-15 訂正: 誤り。パーサ本体と `checked_string` も影響を受ける（後述の訂正エントリ）**
 - 「constexpr パースの到達点」（メモの未解決問題）に直結する制約: `basic_json` の
   定数式構築は GCC でしか担保できていない。clang 19/20 や libc++ での再確認は TODO
 
@@ -377,3 +378,46 @@ RFC 8259 の数値文法は `frac = decimal-point 1*DIGIT`、`exp = e [ minus / 
   他のパーサはすべて失敗時に入力位置を変えない `{nullopt, str}` を返す。呼び出し側の `alt` は
   失敗時の `rest` を見ないため、現状では観測できない。それでも、コンビネータ間の約束
   （失敗したら何も消費しない）に揃えた
+
+## 2026-10-15: 訂正 — clang 18 + libstdc++ 14 では `checked_string` 自体が機能しない（main 時点から）
+
+2026-09-15 のノートで「clang の constexpr variant 問題の影響は `basic_json` を定数式で作る場合のみ」と
+書いたのは誤りだった。数値文法修正の再現テストを clang 18 でもコンパイルして発覚した。
+
+正しい条件（json20 に依存しない最小再現で確認）:
+
+```cpp
+using T = std::tuple<std::string_view, std::vector<std::string_view>>;
+constexpr bool f() {
+  T t{"1", {}};
+  std::variant<std::string_view, T> v = t;
+  return v.index() == 1;
+}
+static_assert(f());  // GCC 14: OK / clang 18 + libstdc++ 14: 非定数式
+```
+
+- libstdc++ の `variant` は、**トリビアルに破棄できない選択肢**（`vector` を含む `tuple` など）を
+  `__aligned_membuf` 上に placement new で構築する。clang はこれを定数式と認めない
+  （"placement new would change type of storage"）。`string` も `vector` もトリビアルに
+  破棄できないので、前回の `variant<string, …>` も同じ規則で説明がつく
+- パーサコンビネータの `alt` は `variant<T, U>` を返す。整数部
+  `alt(parse0, seq(parse1to9, many(parse0to9)))` の第 2 選択肢は
+  `tuple<string_view, vector<string_view>>` なので、`1`〜`9` で始まる数値や配列を
+  パースした時点で定数評価が止まる
+- 実測: **元の main の時点で**、clang 18 では `checked_string` に `"1234"`、`"12.34"`、`"[1,2]"` を
+  渡しても定数評価できない。今回の変更による退行ではない。`tests/parse.cpp` は
+  既存の `checked_string` テストの時点で clang ではコンパイルできなかった。
+  CMake が GCC でしかテストしていなかったので気づかなかった
+- GCC 14 ではすべて通る。「コンパイル時 JSON パース」という README の謳い文句は
+  現状 GCC でしか成立していない
+
+対処方針（未決定・選択肢だけ記録）:
+
+1. コンビネータの戻り値から非トリビアル型を除く。`many` が `vector` を作らないようにする
+   （マッチ範囲の `string_view` だけ返す）。パース結果の値の大半はどうせ捨てているので、
+   自然な方向。`sep_by` は既に範囲だけを返している
+2. libc++ では起きない可能性がある（libc++ は未導入のため未検証）。clang + libc++ の組み合わせを
+   CI に入れて確認する
+3. clang 19 以降で直っているかを確認する
+
+いずれにせよ、CI に clang を入れないと再発に気づけない。「次にやること」の CI の優先度を上げる根拠になる。
