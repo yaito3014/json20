@@ -86,6 +86,64 @@ TEST_CASE("number_floating_point", "[parse]")
   }
 }
 
+namespace {
+
+// same path as checked_string: constant evaluation with a no-op visitor
+constexpr bool accepts(std::string_view str)
+{
+  yk::json20::basic_noop_visitor<char> vis;
+  return json_parser::try_parse(vis, str);
+}
+
+}  // namespace
+
+TEST_CASE("number grammar", "[parse]")
+{
+  // RFC 8259: frac = decimal-point 1*DIGIT, exp = e [ minus / plus ] 1*DIGIT
+  static_assert(!accepts("1."));
+  static_assert(!accepts("1.e5"));
+  static_assert(!accepts("1e"));
+  static_assert(!accepts("1e+"));
+  static_assert(!accepts("1e-"));
+  static_assert(!accepts("1.5e"));
+  static_assert(!accepts("[1.]"));
+  static_assert(!accepts("{\"a\":1e}"));
+  static_assert(!accepts("-"));
+  static_assert(!accepts(".5"));
+  static_assert(!accepts("01"));
+  static_assert(!accepts("+1"));
+
+  static_assert(accepts("0"));
+  static_assert(accepts("-0"));
+  static_assert(accepts("0.5"));
+  static_assert(accepts("1.0"));
+  static_assert(accepts("1e5"));
+  static_assert(accepts("1E+5"));
+  static_assert(accepts("1e-05"));
+  static_assert(accepts("-0.0e-0"));
+  static_assert(accepts("[1.5,2e3]"));
+
+  CHECK_FALSE(json_parser::try_parse("1.").has_value());
+  CHECK_FALSE(json_parser::try_parse("1e").has_value());
+  CHECK_FALSE(json_parser::try_parse("1e+").has_value());
+}
+
+TEST_CASE("truncated input", "[parse]")
+{
+  // inputs ending inside a string must be rejected, not crash
+  static_assert(!accepts("\""));
+  static_assert(!accepts("\"abc"));
+  static_assert(!accepts("[\"abc"));
+  static_assert(!accepts("{\"a"));
+  static_assert(!accepts("{\"a\":\"b"));
+
+  CHECK_FALSE(json_parser::try_parse("\"").has_value());
+  CHECK_FALSE(json_parser::try_parse("\"abc").has_value());
+  CHECK_FALSE(json_parser::try_parse("[\"abc").has_value());
+  CHECK_FALSE(json_parser::try_parse("{\"a").has_value());
+  CHECK_THROWS_AS(json_parser::parse("\"abc"), std::invalid_argument);
+}
+
 TEST_CASE("array", "[parse]")
 {
   {
@@ -156,6 +214,29 @@ TEST_CASE("string", "[parse]")
     const auto x = json_parser::parse("\"\\t\"");
     REQUIRE((x.get_kind() == yk::json20::json_value_kind::string));
     REQUIRE(x.as_string() == "\t");
+  }
+  {
+    // escapes mixed with plain runs, including at both ends
+    const auto x = json_parser::parse("\"\\\"x\\ty\\\\z\\/\\n\"");
+    REQUIRE(x.as_string() == "\"x\ty\\z/\n");
+  }
+  {
+    const auto x = json_parser::parse("\"\"");
+    REQUIRE(x.as_string().empty());
+  }
+  static_assert(accepts("\"a\\nb\""));
+  static_assert(!accepts("\"\\q\""));
+  static_assert(!accepts("\"\\\""));
+  CHECK_FALSE(json_parser::try_parse("\"\\q\"").has_value());
+}
+
+TEST_CASE("control characters", "[parse]")
+{
+  // RFC 8259: unescaped control characters (U+0000..U+001F) must not appear in strings
+  for (int c = 0x00; c <= 0x1F; ++c) {
+    char const buf[3] = {'"', static_cast<char>(c), '"'};
+    CAPTURE(c);
+    CHECK_FALSE(json_parser::try_parse(std::string_view(buf, 3)).has_value());
   }
 }
 
