@@ -6,13 +6,13 @@
 #include <charconv>
 #include <concepts>
 #include <exception>
-#include <functional>
 #include <initializer_list>
 #include <limits>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -739,6 +739,15 @@ private:
     return seq(p, many(seq(d, p)));
   }
 
+  // A lambda with an explicit return type rather than std::bind_front: the
+  // grammar is recursive (value -> array -> value), and bind_front's deduced
+  // call operator is rejected there by clang 21 with libstdc++.
+  template<class Visitor>
+  static constexpr auto bind_visitor(parse_result (*parser)(Visitor&, std::basic_string_view<charT>) noexcept, Visitor& vis) noexcept
+  {
+    return [parser, &vis](std::basic_string_view<charT> str) noexcept -> parse_result { return parser(vis, str); };
+  }
+
   static constexpr parse_result ws(std::basic_string_view<charT> str) noexcept
   {
     auto const space = YK_JSON20_WIDEN_STRING(charT, " ");
@@ -910,7 +919,7 @@ private:
     auto const close_bracket = YK_JSON20_WIDEN_STRING(charT, "]");
     auto const comma = YK_JSON20_WIDEN_STRING(charT, ",");
 
-    auto const parser = seq(lit(open_bracket), alt(sep_by(std::bind_front(parse_value<Visitor>, std::ref(vis)), lit(comma)), ws), lit(close_bracket));
+    auto const parser = seq(lit(open_bracket), alt(sep_by(bind_visitor(parse_value<Visitor>, vis), lit(comma)), ws), lit(close_bracket));
 
     YK_JSON20_INVOKE_VISITOR(vis, on_array_start)
     auto res = parser(str);
@@ -1038,7 +1047,7 @@ private:
     auto const comma = YK_JSON20_WIDEN_STRING(charT, ",");
 
     auto const key_value_parser =
-        seq(ws, std::bind_front(parse_string<Visitor>, std::ref(vis)), ws, lit(colon), std::bind_front(parse_value<Visitor>, std::ref(vis)));
+        seq(ws, bind_visitor(parse_string<Visitor>, vis), ws, lit(colon), bind_visitor(parse_value<Visitor>, vis));
     auto const parser = seq(lit(open_brace), alt(sep_by(key_value_parser, lit(comma)), ws), lit(close_brace));
 
     YK_JSON20_INVOKE_VISITOR(vis, on_object_start)
@@ -1058,12 +1067,12 @@ private:
     auto const parser =
         seq(ws,
             alt(
-                std::bind_front(parse_null<Visitor>, std::ref(vis)),     //
-                std::bind_front(parse_boolean<Visitor>, std::ref(vis)),  //
-                std::bind_front(parse_number<Visitor>, std::ref(vis)),   //
-                std::bind_front(parse_string<Visitor>, std::ref(vis)),   //
-                std::bind_front(parse_array<Visitor>, std::ref(vis)),    //
-                std::bind_front(parse_object<Visitor>, std::ref(vis))    //
+                bind_visitor(parse_null<Visitor>, vis),     //
+                bind_visitor(parse_boolean<Visitor>, vis),  //
+                bind_visitor(parse_number<Visitor>, vis),   //
+                bind_visitor(parse_string<Visitor>, vis),   //
+                bind_visitor(parse_array<Visitor>, vis),    //
+                bind_visitor(parse_object<Visitor>, vis)    //
             ),
             ws);
 
