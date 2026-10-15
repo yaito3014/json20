@@ -980,54 +980,83 @@ private:
     //     lit(YK_JSON20_WIDEN_STRING(charT, "f"))   //
     // );
 
-    // TODO: implement unicode escape sequence
-    auto const escape_sequence = [&](std::basic_string_view<charT> s) -> parse_result<std::basic_string<charT>> {
-      if (!s.starts_with(backslash)) return {std::nullopt, s};
-      auto sequence = s.substr(backslash.size());
-
-      auto const slash = YK_JSON20_WIDEN_STRING(charT, "/");
-      auto const str_b = YK_JSON20_WIDEN_STRING(charT, "b");
-      auto const str_f = YK_JSON20_WIDEN_STRING(charT, "f");
-      auto const str_n = YK_JSON20_WIDEN_STRING(charT, "n");
-      auto const str_r = YK_JSON20_WIDEN_STRING(charT, "r");
-      auto const str_t = YK_JSON20_WIDEN_STRING(charT, "t");
-      auto const backspace = YK_JSON20_WIDEN_STRING(charT, "\u0008");
-      auto const formfeed = YK_JSON20_WIDEN_STRING(charT, "\u000C");
-      auto const linefeed = YK_JSON20_WIDEN_STRING(charT, "\u000A");
-      auto const cr = YK_JSON20_WIDEN_STRING(charT, "\u000D");
-      auto const tab = YK_JSON20_WIDEN_STRING(charT, "\u0009");
-
-      if (sequence.starts_with(quote)) return {std::basic_string<charT>{quote}, sequence.substr(quote.size())};
-      if (sequence.starts_with(backslash)) return {std::basic_string<charT>{backslash}, sequence.substr(backslash.size())};
-      if (sequence.starts_with(slash)) return {std::basic_string<charT>{slash}, sequence.substr(slash.size())};
-      if (sequence.starts_with(str_b)) return {std::basic_string<charT>{backspace}, sequence.substr(str_b.size())};
-      if (sequence.starts_with(str_f)) return {std::basic_string<charT>{formfeed}, sequence.substr(str_f.size())};
-      if (sequence.starts_with(str_n)) return {std::basic_string<charT>{linefeed}, sequence.substr(str_n.size())};
-      if (sequence.starts_with(str_r)) return {std::basic_string<charT>{cr}, sequence.substr(str_r.size())};
-      if (sequence.starts_with(str_t)) return {std::basic_string<charT>{tab}, sequence.substr(str_t.size())};
-      return {std::nullopt, s};
+    auto const escape_sequence = [&](std::basic_string_view<charT> s) -> parse_result<> {
+      if (!s.starts_with(std::basic_string_view<charT>(backslash))) return {std::nullopt, s};
+      auto const n = backslash.size() + unescape(s.substr(backslash.size()), nullptr);
+      if (n == backslash.size()) return {std::nullopt, s};
+      return {s.substr(0, n), s.substr(n)};
     };
 
-    auto const str_parser = [&](std::basic_string_view<charT> s) -> parse_result<std::basic_string<charT>> {
+    auto const body_parser = [&](std::basic_string_view<charT> s) -> parse_result<> {
       auto const res = many(alt(except(alt(lit(quote), lit(backslash), cntrl)), escape_sequence))(s);
       if (!res.match) return {std::nullopt, s};
-      std::basic_string<charT> result;
-      for (auto& var : *res.match) {
-        std::visit([&](auto&& str_like) { result.append(std::move(str_like)); }, std::move(var));
-      }
-      return {result, res.rest};
+      return {std::basic_string_view<charT>{s.begin(), res.rest.begin()}, res.rest};
     };
 
-    auto const parser = seq(lit(quote), str_parser, lit(quote));
+    auto const res1 = lit(quote)(str);
+    if (!res1.match) return {std::nullopt, str};
+    auto const res2 = body_parser(res1.rest);
+    if (!res2.match) return {std::nullopt, str};
+    auto const res3 = lit(quote)(res2.rest);
+    if (!res3.match) return {std::nullopt, str};
 
-    auto res = parser(str);
-    if (res.match) {
-      std::basic_string_view<charT> match{str.begin(), res.rest.begin()};
-      auto const content = std::get<0>(std::get<1>(*res.match));
-      YK_JSON20_INVOKE_VISITOR(vis, on_string, content, match)
-      return {match, res.rest};
+    std::basic_string_view<charT> const match{str.begin(), res3.rest.begin()};
+    std::basic_string_view<charT> const body = *res2.match;
+
+    // decode only when there is something to decode; otherwise hand out the input itself
+    std::basic_string<charT> decoded;
+    std::basic_string_view<charT> content = body;
+    if (body.find(std::basic_string_view<charT>(backslash)) != std::basic_string_view<charT>::npos) {
+      decoded = decode_string(body);
+      content = decoded;
     }
-    return {std::nullopt, str};
+    YK_JSON20_INVOKE_VISITOR(vis, on_string, content, match)
+    return {match, res3.rest};
+  }
+
+  // Recognizes one escape sequence (the part after the backslash) at the head
+  // of `s`. Returns the number of code units it spans, or 0 if there is none;
+  // on a match, also appends the decoded character to `out` when given.
+  // This is the only table of JSON escapes: recognition and decoding share it.
+  // TODO: implement unicode escape sequence
+  static constexpr std::size_t unescape(std::basic_string_view<charT> s, std::basic_string<charT>* out)
+  {
+    auto const one = [&](auto const& escaped, auto const& decoded) -> std::size_t {
+      if (!s.starts_with(std::basic_string_view<charT>(escaped))) return 0;
+      if (out) out->append(std::basic_string_view<charT>(decoded));
+      return escaped.size();
+    };
+
+    auto const quote = YK_JSON20_WIDEN_STRING(charT, "\"");
+    auto const backslash = YK_JSON20_WIDEN_STRING(charT, "\\");
+    auto const slash = YK_JSON20_WIDEN_STRING(charT, "/");
+
+    if (auto n = one(quote, quote)) return n;
+    if (auto n = one(backslash, backslash)) return n;
+    if (auto n = one(slash, slash)) return n;
+    if (auto n = one(YK_JSON20_WIDEN_STRING(charT, "b"), YK_JSON20_WIDEN_STRING(charT, "\u0008"))) return n;
+    if (auto n = one(YK_JSON20_WIDEN_STRING(charT, "f"), YK_JSON20_WIDEN_STRING(charT, "\u000C"))) return n;
+    if (auto n = one(YK_JSON20_WIDEN_STRING(charT, "n"), YK_JSON20_WIDEN_STRING(charT, "\u000A"))) return n;
+    if (auto n = one(YK_JSON20_WIDEN_STRING(charT, "r"), YK_JSON20_WIDEN_STRING(charT, "\u000D"))) return n;
+    if (auto n = one(YK_JSON20_WIDEN_STRING(charT, "t"), YK_JSON20_WIDEN_STRING(charT, "\u0009"))) return n;
+    return 0;
+  }
+
+  // `body` must already be recognized by the string grammar, so every
+  // backslash in it starts a valid escape sequence.
+  static constexpr std::basic_string<charT> decode_string(std::basic_string_view<charT> body)
+  {
+    auto const backslash = YK_JSON20_WIDEN_STRING(charT, "\\");
+    std::basic_string<charT> result;
+    while (true) {
+      auto const pos = body.find(std::basic_string_view<charT>(backslash));
+      result.append(body.substr(0, pos));
+      if (pos == std::basic_string_view<charT>::npos) return result;
+      body.remove_prefix(pos + backslash.size());
+      auto const n = unescape(body, &result);
+      assert(n != 0);
+      body.remove_prefix(n);
+    }
   }
 
   template<class Visitor>

@@ -215,6 +215,19 @@ TEST_CASE("string", "[parse]")
     REQUIRE((x.get_kind() == yk::json20::json_value_kind::string));
     REQUIRE(x.as_string() == "\t");
   }
+  {
+    // escapes mixed with plain runs, including at both ends
+    const auto x = json_parser::parse("\"\\\"x\\ty\\\\z\\/\\n\"");
+    REQUIRE(x.as_string() == "\"x\ty\\z/\n");
+  }
+  {
+    const auto x = json_parser::parse("\"\"");
+    REQUIRE(x.as_string().empty());
+  }
+  static_assert(accepts("\"a\\nb\""));
+  static_assert(!accepts("\"\\q\""));
+  static_assert(!accepts("\"\\\""));
+  CHECK_FALSE(json_parser::try_parse("\"\\q\"").has_value());
 }
 
 TEST_CASE("control characters", "[parse]")
