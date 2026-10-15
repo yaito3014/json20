@@ -99,14 +99,14 @@ struct deserializer {
   static constexpr auto deserialize(std::basic_string_view<charT> str) = delete;
 };
 
-template<>
-struct deserializer<bool, char> {
-  static constexpr std::string_view true_ = "true";
-  static constexpr std::string_view false_ = "false";
-  static constexpr auto deserialize(std::string_view str)
+template<class charT>
+struct deserializer<bool, charT> {
+  static constexpr std::basic_string_view<charT> true_ = YK_JSON20_WIDEN_STRING(charT, "true");
+  static constexpr std::basic_string_view<charT> false_ = YK_JSON20_WIDEN_STRING(charT, "false");
+  static constexpr auto deserialize(std::basic_string_view<charT> str)
   {
-    if (str == true_) return make_deserialize_result<char>(str.begin() + true_.size(), true);
-    if (str == false_) return make_deserialize_result<char>(str.begin() + false_.size(), false);
+    if (str == true_) return make_deserialize_result<charT>(str.begin() + true_.size(), true);
+    if (str == false_) return make_deserialize_result<charT>(str.begin() + false_.size(), false);
     throw std::invalid_argument("argument is not boolean");
   }
 };
@@ -168,11 +168,17 @@ struct serializer {
   static constexpr std::basic_string<charT> serialize(T const& x) = delete;
 };
 
-template<>
-struct serializer<bool, char> {
-  static constexpr std::string_view true_ = "true";
-  static constexpr std::string_view false_ = "false";
-  static constexpr std::string serialize(bool const& x) { return std::string(x ? true_ : false_); }
+template<class charT>
+struct serializer<bool, charT> {
+  static constexpr std::basic_string_view<charT> true_ = YK_JSON20_WIDEN_STRING(charT, "true");
+  static constexpr std::basic_string_view<charT> false_ = YK_JSON20_WIDEN_STRING(charT, "false");
+  static constexpr std::basic_string<charT> serialize(bool const& x)
+  {
+    auto const s = x ? true_ : false_;
+    // a pointer range, not the string_view constructor: clang (18) cannot
+    // constant-evaluate libstdc++'s for char8_t
+    return std::basic_string<charT>(s.data(), s.data() + s.size());
+  }
 };
 
 // Digits come from a literal table, so they are spelled in charT and in the

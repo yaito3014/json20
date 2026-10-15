@@ -904,3 +904,16 @@ MSVC への配慮: 定数式の中で初期化していない配列を使うこ�
 同じキーの間の順序は、入力順の番号を併用した比較で決める。`std::stable_sort` が constexpr になるのは C++26 からなので使わない。
 
 キーの比較はデコード済みの文字列で行うので、`{"/":1,"\/":2}` も重複として扱われる（テストで確認）。
+
+## 2026-10-15: 修正 — 真偽値の変換を、すべての文字型に対応させた
+
+README の例を書いていて見つけた。整数（PR #1）と浮動小数点（PR #3）は charT ごとの変換になったが、真偽値の
+serializer / deserializer は `char` にしか特殊化されていなかった。そのため `wjson(true)` も、
+`u16json_parser::parse(u"true").as_boolean()` もコンパイルできなかった（パースして DOM を作ることはできる。
+字句を保持するだけで、変換しないため）。
+
+- `"true"` / `"false"` を `YK_JSON20_WIDEN_STRING` で charT ごとに用意し、`deserializer<bool, charT>` と
+  `serializer<bool, charT>` にした。リテラルなので EBCDIC でもコンパイラが翻訳する
+- 文字列を作るときは `std::basic_string<charT>(first, last)` を使う。`basic_string_view` からのコンストラクタは、
+  Clang 18 + libstdc++ 14 で char8_t のときに定数式で評価できなかった（「`_M_construct<const char8_t *>` が未定義」）。
+  ポインタの範囲を取るコンストラクタなら評価できる

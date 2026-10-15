@@ -285,6 +285,25 @@ TEST_CASE("integer conversion", "[json]")
   CHECK_THROWS_AS((deserializer<int, char>::deserialize("")), std::invalid_argument);
 }
 
+TEST_CASE("boolean conversion", "[json]")
+{
+  using yk::json20::deserializer;
+  using yk::json20::serializer;
+
+  // every character type, like the other scalars
+  static_assert(serializer<bool, char>::serialize(true) == "true");
+  static_assert(serializer<bool, char8_t>::serialize(false) == u8"false");
+  static_assert(std::get<0>(deserializer<bool, char16_t>::deserialize(u"true").args) == true);
+  static_assert(std::get<0>(deserializer<bool, char32_t>::deserialize(U"false").args) == false);
+
+  CHECK(yk::json20::wjson(true).as_boolean() == true);
+  CHECK(yk::json20::u8json(false).as_string_unchecked() == u8"false");
+  CHECK(yk::json20::u16json_parser::parse(u"[true, false]").at(1).as_boolean() == false);
+  CHECK(yk::json20::u32json_parser::parse(U"{\"k\": true}").at(U"k").try_as_boolean() == true);
+
+  CHECK_THROWS_AS((deserializer<bool, char16_t>::deserialize(u"null")), std::invalid_argument);
+}
+
 TEST_CASE("number roundtrip", "[json]")
 {
   {
