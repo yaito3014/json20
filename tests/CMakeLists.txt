@@ -20,6 +20,12 @@ yk_json20_add_test(number)
 yk_json20_add_test(parse)
 yk_json20_add_test(util)
 
+# The library's minimum standard, whatever CMAKE_CXX_STANDARD the other tests use
+add_executable(yk_json20_cxx20_test cxx20.cpp)
+set_target_properties(yk_json20_cxx20_test PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
+target_link_libraries(yk_json20_cxx20_test PRIVATE json20)
+add_test(NAME yk_json20_cxx20_test COMMAND yk_json20_cxx20_test)
+
 # EBCDIC support check: all assertions in ebcdic.cpp are static_asserts, so
 # successful compilation is the actual test. Only possible where the compiler
 # can target an EBCDIC execution character set (GCC with iconv; clang cannot).

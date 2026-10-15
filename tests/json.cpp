@@ -97,6 +97,17 @@ TEST_CASE("assignment", "[json]")
   a = {std::pair{"foo", 42}, {"bar", 3.14}};
   CHECK(a.at("foo").as_signed_integer<signed>() == 42);
   CHECK(a.at("bar").as_floating_point<double>() == 3.14);
+
+  // bool satisfies std::unsigned_integral, but stays a boolean
+  a = true;
+  CHECK(a.get_kind() == yk::json20::json_value_kind::boolean);
+  CHECK(a.as_boolean() == true);
+  json o = json::object();
+  o["flag"] = false;
+  CHECK(o.at("flag").try_as_boolean() == false);
+  yk::json20::wjson w = yk::json20::wjson::array();
+  w = true;
+  CHECK(w.as_boolean() == true);
 }
 
 TEST_CASE("subscript", "[json]")
@@ -283,6 +294,25 @@ TEST_CASE("integer conversion", "[json]")
   CHECK_THROWS_AS((deserializer<unsigned, char>::deserialize("-1")), std::invalid_argument);
   CHECK_THROWS_AS((deserializer<int, char>::deserialize("-")), std::invalid_argument);
   CHECK_THROWS_AS((deserializer<int, char>::deserialize("")), std::invalid_argument);
+}
+
+TEST_CASE("boolean conversion", "[json]")
+{
+  using yk::json20::deserializer;
+  using yk::json20::serializer;
+
+  // every character type, like the other scalars
+  static_assert(serializer<bool, char>::serialize(true) == "true");
+  static_assert(serializer<bool, char8_t>::serialize(false) == u8"false");
+  static_assert(std::get<0>(deserializer<bool, char16_t>::deserialize(u"true").args) == true);
+  static_assert(std::get<0>(deserializer<bool, char32_t>::deserialize(U"false").args) == false);
+
+  CHECK(yk::json20::wjson(true).as_boolean() == true);
+  CHECK(yk::json20::u8json(false).as_string_unchecked() == u8"false");
+  CHECK(yk::json20::u16json_parser::parse(u"[true, false]").at(1).as_boolean() == false);
+  CHECK(yk::json20::u32json_parser::parse(U"{\"k\": true}").at(U"k").try_as_boolean() == true);
+
+  CHECK_THROWS_AS((deserializer<bool, char16_t>::deserialize(u"null")), std::invalid_argument);
 }
 
 TEST_CASE("number roundtrip", "[json]")

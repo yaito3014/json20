@@ -1293,3 +1293,57 @@ PR #1 で Codex が指摘した「EBCDIC では浮動小数点の読み出しが
   定数式の中だけ `append` で組み立てるようにした（`std::is_constant_evaluated()`）。実行時に `append` を使うと
   GCC で約 12 ns 遅くなったので、実行時はコンストラクタのまま
 - **MSVC は未確認**。CI で初めてコンパイルされる。定数評価の上限については、5 の累乗の表の項を参照
+
+## 2026-10-15: 修正 — 真偽値の変換を、すべての文字型に対応させた
+
+README の例を書いていて見つけた。整数（PR #1）と浮動小数点（PR #3）は charT ごとの変換になったが、真偽値の
+serializer / deserializer は `char` にしか特殊化されていなかった。そのため `wjson(true)` も、
+`u16json_parser::parse(u"true").as_boolean()` もコンパイルできなかった（パースして DOM を作ることはできる。
+字句を保持するだけで、変換しないため）。
+
+- `"true"` / `"false"` を `YK_JSON20_WIDEN_STRING` で charT ごとに用意し、`deserializer<bool, charT>` と
+  `serializer<bool, charT>` にした。リテラルなので EBCDIC でもコンパイラが翻訳する
+- 文字列を作るときは `std::basic_string<charT>(first, last)` を使う。`basic_string_view` からのコンストラクタは、
+  Clang 18 + libstdc++ 14 で char8_t のときに定数式で評価できなかった（「`_M_construct<const char8_t *>` が未定義」）。
+  ポインタの範囲を取るコンストラクタなら評価できる
+
+## 2026-10-15: 修正 — `bool` を代入すると、真偽値ではなく符号なし整数になっていた
+
+前項のテストを書いていて見つけた。`char` でも起きる。
+
+```cpp
+json a = json::array();
+a = true;   // 修正前: 種類は number_unsigned_integer、字句は "true"
+```
+
+原因: `bool` は `std::unsigned_integral` を満たす（整数型で、符号付きではない）。構築には `basic_json(bool)` という
+テンプレートでない完全一致のコンストラクタがあるので正しく真偽値になるが、代入には `bool` 用の `operator=` がなく、
+`template<std::unsigned_integral UInt> operator=(UInt)` が選ばれていた。字句は bool の serializer が作るので
+`"true"` になり、「種類は数値、字句は true」という不整合な値ができていた。`as_unsigned_integer` で読むと例外になる。
+
+修正: コンストラクタと対になる `operator=(bool)` を加えた。テンプレートでない完全一致なので、テンプレートより優先される。
+
+見送った案: 整数用のテンプレートの制約に `!std::same_as<T, bool>` を足す。これでも直るが、代入とコンストラクタで
+書き方がそろわなくなる。`operator=(bool)` ならコンストラクタと同じ形になる。
+
+## 2026-10-15: 修正 — `json(nullptr)` をコンパイルエラーにした（null は `json()`）
+
+README の例を書いていて見つけた。C++20 では `json(nullptr)` も `j = nullptr` もコンパイルでき、実行時に
+異常終了していた（libstdc++ では「basic_string: construction from null is not valid」の例外、libc++ では
+セグメンテーション違反）。
+
+原因: 文字列のコンストラクタは「`basic_string_view<charT>` に変換できる型」を受け付ける。C++20 では
+`nullptr` が `const char*` を経由して `std::string_view` に暗黙に変換できるので、`nullptr` が文字列として
+扱われ、null ポインタから文字列を作っていた。C++23 では `basic_string_view(nullptr_t)` が削除されたので、
+同じコードがコンパイルエラーになる。CI は C++23 と C++26 しか試していなかったので、表に出なかった。
+
+判断: `basic_json(std::nullptr_t)` と `operator=(std::nullptr_t)` を削除（`= delete`）した。C++20 でも
+C++23 と同じくコンパイルエラーになる。null は今までどおり `json()` で作る。
+
+見送った案: `json(nullptr)` を null にする（nlohmann/json と同じ）。書きやすいが、null の書き方が 2 つになり、
+C++ のポインタと JSON の null を暗黙に結びつけることになる。「暗黙の変換はしない」方針に合わせて、まずは
+エラーにした。後から null を作る書き方として許すことはできる（逆に、許したものを後から禁止すると破壊的変更になる）。
+
+あわせて、ライブラリの最低要件である C++20 でテストする翻訳単位（`tests/cxx20.cpp`）を加えた。他のテストは
+C++23 の機能（`<print>` など）を使っているので、CI の行列（C++23 / C++26）とは別に、この翻訳単位だけ常に C++20 で
+ビルドする。C++20 でヘッダがコンパイルできることも、これで CI で確かめられる。
