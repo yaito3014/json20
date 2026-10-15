@@ -32,4 +32,15 @@ static_assert(parser::parse("-9223372036854775808").as_signed_integer<long long>
 static_assert(static_cast<unsigned char>(yk::json20::json(42u).as_string_unchecked()[0]) == 0xF4);
 static_assert(yk::json20::json(-7).as_string_unchecked() == "-7");
 
+// floating-point values too: parsed from and serialized to EBCDIC digits,
+// '.', 'e', '+' and '-' (0x4B is '.', 0x85 is 'e', 0x4E is '+')
+static_assert(parser::parse("12.5").as_floating_point<double>() == 12.5);
+static_assert(parser::parse("-2.5E-3").as_floating_point<double>() == -2.5e-3);
+static_assert(parser::parse("1e+2").as_floating_point<float>() == 100.0f);
+static_assert(yk::json20::json(0.1).as_string_unchecked() == "0.1");
+static_assert(static_cast<unsigned char>(yk::json20::json(0.5).as_string_unchecked()[1]) == 0x4B);
+static_assert(yk::json20::json(1e100).as_string_unchecked() == "1e+100");
+static_assert(static_cast<unsigned char>(yk::json20::json(1e100).as_string_unchecked()[1]) == 0x85);
+static_assert(static_cast<unsigned char>(yk::json20::json(1e100).as_string_unchecked()[2]) == 0x4E);
+
 int main() {}
