@@ -13,6 +13,7 @@
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -110,8 +111,48 @@ struct deserializer<bool, char> {
   }
 };
 
+// Digits are decoded as offsets from the translated literal '0', which the
+// standard guarantees to be followed by '1'..'9' in every encoding, so this
+// works for any charT and execution character set (EBCDIC included), unlike
+// the platform's from_chars.
+template<class T, class charT>
+  requires std::integral<T> && (!std::same_as<T, bool>)
+struct deserializer<T, charT> {
+  static constexpr auto deserialize(std::basic_string_view<charT> str)
+  {
+    constexpr auto zero = YK_JSON20_WIDEN_STRING(charT, "0");
+    constexpr auto minus = YK_JSON20_WIDEN_STRING(charT, "-");
+    using U = std::make_unsigned_t<T>;
+
+    std::size_t i = 0;
+    bool negative = false;
+    if constexpr (std::is_signed_v<T>) {
+      if (!str.empty() && str[0] == minus.data[0]) {
+        negative = true;
+        i = 1;
+      }
+    }
+    // the magnitude of the most negative value is one more than the maximum
+    U const limit = static_cast<U>(std::numeric_limits<T>::max()) + (negative ? 1 : 0);
+
+    std::size_t const first_digit = i;
+    U value = 0;
+    for (; i < str.size(); ++i) {
+      auto const offset = static_cast<long long>(str[i]) - static_cast<long long>(zero.data[0]);
+      if (offset < 0 || offset > 9) break;
+      U const digit = static_cast<U>(offset);
+      if (value > (limit - digit) / 10) throw std::invalid_argument("integer out of range");
+      value = static_cast<U>(value * 10 + digit);
+    }
+    if (i == first_digit) throw std::invalid_argument("no digits");
+
+    T const result = negative ? static_cast<T>(U(0) - value) : static_cast<T>(value);
+    return make_deserialize_result<charT>(str.begin() + i, result);
+  }
+};
+
 template<class T>
-  requires std::integral<T> || std::floating_point<T>
+  requires std::floating_point<T>
 struct deserializer<T, char> {
   static constexpr auto deserialize(std::string_view str)
   {
@@ -134,20 +175,67 @@ struct serializer<bool, char> {
   static constexpr std::string serialize(bool const& x) { return std::string(x ? true_ : false_); }
 };
 
+// Digits come from a literal table, so they are spelled in charT and in the
+// execution character set the compiler translated the literal to.
+template<class T, class charT>
+  requires std::integral<T> && (!std::same_as<T, bool>)
+struct serializer<T, charT> {
+  static constexpr std::basic_string<charT> serialize(T const& x)
+  {
+    constexpr auto digit_pairs = YK_JSON20_WIDEN_STRING(
+        charT,
+        "00010203040506070809"
+        "10111213141516171819"
+        "20212223242526272829"
+        "30313233343536373839"
+        "40414243444546474849"
+        "50515253545556575859"
+        "60616263646566676869"
+        "70717273747576777879"
+        "80818283848586878889"
+        "90919293949596979899"
+    );
+    constexpr auto minus = YK_JSON20_WIDEN_STRING(charT, "-");
+    using U = std::make_unsigned_t<T>;
+
+    bool negative = false;
+    U value = static_cast<U>(x);
+    if constexpr (std::is_signed_v<T>) {
+      if (x < 0) {
+        negative = true;
+        value = static_cast<U>(U(0) - value);
+      }
+    }
+
+    // digits10 rounds down, so +2 covers every digit plus the sign
+    charT buf[std::numeric_limits<U>::digits10 + 2]{};
+    charT* const last = std::end(buf);
+    charT* first = last;
+    while (value >= 100) {
+      auto const pair = static_cast<std::size_t>(value % 100) * 2;
+      value /= 100;
+      *--first = digit_pairs.data[pair + 1];
+      *--first = digit_pairs.data[pair];
+    }
+    if (value >= 10) {
+      auto const pair = static_cast<std::size_t>(value) * 2;
+      *--first = digit_pairs.data[pair + 1];
+      *--first = digit_pairs.data[pair];
+    } else {
+      *--first = digit_pairs.data[static_cast<std::size_t>(value) * 2 + 1];
+    }
+    if (negative) *--first = minus.data[0];
+    return std::basic_string<charT>(first, last);
+  }
+};
+
 template<class T>
-  requires std::integral<T> || std::floating_point<T>
+  requires std::floating_point<T>
 struct serializer<T, char> {
   static constexpr std::string serialize(T const& x)
   {
-    // digits10 rounds down, so +2 covers all digits plus the sign;
-    // shortest float form needs max_digits10 digits, sign, dot, and "e+XXXX"
-    constexpr std::size_t buf_size = [] {
-      if constexpr (std::integral<T>)
-        return std::numeric_limits<T>::digits10 + 2;
-      else
-        return std::numeric_limits<T>::max_digits10 + 8;
-    }();
-    char buf[buf_size];
+    // shortest form needs max_digits10 digits, sign, dot, and "e+XXXX"
+    char buf[std::numeric_limits<T>::max_digits10 + 8];
     auto [ptr, ec] = std::to_chars(std::begin(buf), std::end(buf), x);
     if (ec != std::errc{}) throw std::runtime_error("to_chars error");
     return std::string(buf, ptr);

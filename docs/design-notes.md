@@ -788,3 +788,41 @@ Eisel-Lemire が使う 5^q の正規化した 128 ビット近似と、Schubfach
 ソースコード（fast_float、Dragonbox、Żmij）、および検索結果の要約に基づく。2026 年の比較論文
 （arXiv 2603.06581、"Converting Binary Floating-Point Numbers to Shortest Decimal Strings: An Experimental Review"）
 の本文は未読。
+
+## 2026-10-15: 設計判断 — 整数の変換を自前で実装（浮動小数点は次の PR で Dragonbox）
+
+作者の判断:
+
+- 数値変換は自前で実装する。浮動小数点の出力は **Dragonbox** を採用する
+- この PR（#1）では**整数だけ**を実装する。浮動小数点（Dragonbox による出力と Eisel-Lemire によるパース）は
+  規模が大きく、乱数による大量の往復テストも要るので、別の PR に分ける
+
+整数の実装:
+
+- パース: 1 桁ずつのループで、各文字を翻訳済みのリテラル `'0'` からの差（0〜9）として読む。符号付きの型では
+  先頭の `-` を受け付ける。最も小さい負の値の絶対値は最大値より 1 大きいので、上限をそれに合わせてから
+  桁あふれを検査する（`value > (limit - digit) / 10` なら範囲外）。数字がない場合と範囲外の場合は、これまでどおり
+  `std::invalid_argument` を投げる（例外の型は変えない）。最初の数字でない文字で止まるのは `from_chars` と同じ
+- 出力: 2 桁ずつの表を文字列リテラル `"000102…99"` で持ち、`YK_JSON20_WIDEN_STRING` で charT ごとに用意する。
+  リテラルなので、EBCDIC でもコンパイラが数字を翻訳する。符号付きの型の最小値は、符号なしの型に移してから
+  `0 - value` で絶対値を作る（`-x` は桁あふれするため）
+- bool は対象外（`!std::same_as<T, bool>` で除外）。浮動小数点は次の PR まで `char` 専用の
+  `std::from_chars` / `std::to_chars` のまま
+
+効果:
+
+- EBCDIC（`-fexec-charset=IBM1047`）で、整数の読み出しと書き出しがコンパイルでき、値も正しい
+  （tests/ebcdic.cpp に `static_assert` で追加。修正前は libstdc++ の `<charconv>` の中でコンパイルエラー）
+- **wchar_t / char8_t / char16_t / char32_t でも整数を扱えるようになった**。これまでは serializer /
+  deserializer が `char` にしか特殊化されておらず、`wjson(42)` も `as_signed_integer` もコンパイルできなかった
+- **C++20 で constexpr**（`from_chars` の整数版が constexpr になったのは C++23 から）。
+  `static_assert(serializer<int, char>::serialize(-1234) == "-1234")` のように定数式で使える
+
+見送ったこと:
+
+- 8 桁を一度に処理する高速化（SWAR）: ASCII の値を直書きする必要があり、文字幅ごとに実装も要る。JSON の整数は
+  高々 20 桁なので、1 桁ずつのループとの差は小さい
+- 例外の型を `std::out_of_range` に変える: 範囲外を表す型としてはそちらが正確だが、挙動の変更になるので別の判断とする
+
+MSVC への配慮: 定数式の中で初期化していない配列を使うこと（C++20 で許可）を MSVC が受け付けるか手元で確かめられない
+ので、出力用のバッファは `{}` で値初期化した。

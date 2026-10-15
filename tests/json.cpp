@@ -4,6 +4,9 @@
 
 #include <cstdint>
 #include <limits>
+#include <memory>
+#include <tuple>
+#include <type_traits>
 
 using json = yk::json20::basic_json<char>;
 
@@ -196,6 +199,77 @@ TEST_CASE("numeric conversion failure", "[json]")
   static_assert(!noexcept(b.as_boolean_unchecked()));
   // try_as reports failure through the optional instead
   static_assert(noexcept(a.try_as_unsigned_integer<unsigned>()));
+}
+
+namespace {
+
+template<class charT, class T>
+void check_integer_roundtrip(T x)
+{
+  yk::json20::basic_json<charT> j(x);
+  if constexpr (std::is_signed_v<T>)
+    CHECK(j.template as_signed_integer<T>() == x);
+  else
+    CHECK(j.template as_unsigned_integer<T>() == x);
+}
+
+template<class charT>
+void check_integer_roundtrips()
+{
+  check_integer_roundtrip<charT>(std::numeric_limits<std::int8_t>::min());
+  check_integer_roundtrip<charT>(std::numeric_limits<std::int8_t>::max());
+  check_integer_roundtrip<charT>(std::numeric_limits<std::uint8_t>::max());
+  check_integer_roundtrip<charT>(std::numeric_limits<std::int32_t>::min());
+  check_integer_roundtrip<charT>(std::numeric_limits<std::uint32_t>::max());
+  check_integer_roundtrip<charT>(std::numeric_limits<std::int64_t>::min());
+  check_integer_roundtrip<charT>(std::numeric_limits<std::int64_t>::max());
+  check_integer_roundtrip<charT>(std::numeric_limits<std::uint64_t>::max());
+  check_integer_roundtrip<charT>(std::int64_t{0});
+  check_integer_roundtrip<charT>(std::uint64_t{0});
+  check_integer_roundtrip<charT>(std::int32_t{-1});
+  check_integer_roundtrip<charT>(std::uint32_t{1000000});
+}
+
+}  // namespace
+
+TEST_CASE("integer conversion", "[json]")
+{
+  using yk::json20::deserializer;
+  using yk::json20::serializer;
+
+  // self-implemented: constexpr and independent of the platform's from_chars / to_chars
+  static_assert(serializer<int, char>::serialize(-1234) == "-1234");
+  static_assert(serializer<int, char>::serialize(0) == "0");
+  static_assert(serializer<unsigned long long, char16_t>::serialize(18446744073709551615ull) == u"18446744073709551615");
+  static_assert(serializer<signed char, char32_t>::serialize(-128) == U"-128");
+  static_assert(std::get<0>(deserializer<int, char8_t>::deserialize(u8"-2147483648").args) == -2147483647 - 1);
+  static_assert(std::get<0>(deserializer<unsigned, wchar_t>::deserialize(L"4294967295").args) == 4294967295u);
+
+  check_integer_roundtrips<char>();
+  check_integer_roundtrips<wchar_t>();
+  check_integer_roundtrips<char8_t>();
+  check_integer_roundtrips<char16_t>();
+  check_integer_roundtrips<char32_t>();
+
+  CHECK(yk::json20::wjson_parser::parse(L"-42").as_signed_integer<int>() == -42);
+  CHECK(yk::json20::u32json_parser::parse(U"[18446744073709551615]").at(0).as_unsigned_integer<std::uint64_t>() == 18446744073709551615ull);
+
+  // conversion stops at the first non-digit, like from_chars
+  {
+    std::string_view const s = "12.5";
+    auto const r = deserializer<int, char>::deserialize(s);
+    CHECK(std::get<0>(r.args) == 12);
+    CHECK(std::to_address(r.it) == s.data() + 2);
+  }
+
+  // out of range or no digits at all
+  CHECK_THROWS_AS((deserializer<std::int64_t, char>::deserialize("9223372036854775808")), std::invalid_argument);
+  CHECK_THROWS_AS((deserializer<std::int64_t, char>::deserialize("-9223372036854775809")), std::invalid_argument);
+  CHECK_THROWS_AS((deserializer<std::uint64_t, char>::deserialize("18446744073709551616")), std::invalid_argument);
+  CHECK_THROWS_AS((deserializer<std::uint8_t, char16_t>::deserialize(u"256")), std::invalid_argument);
+  CHECK_THROWS_AS((deserializer<unsigned, char>::deserialize("-1")), std::invalid_argument);
+  CHECK_THROWS_AS((deserializer<int, char>::deserialize("-")), std::invalid_argument);
+  CHECK_THROWS_AS((deserializer<int, char>::deserialize("")), std::invalid_argument);
 }
 
 TEST_CASE("number roundtrip", "[json]")

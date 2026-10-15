@@ -21,4 +21,15 @@ static_assert(!parser::try_parse("\"a\x25" "b\"").has_value());
 // but a raw NEL byte (0x15 = U+0085 here) is allowed: JSON bans only U+0000..U+001F
 static_assert(parser::try_parse("\"a\x15" "b\"").has_value());
 
+// integer access decodes EBCDIC digits instead of handing them to the
+// platform's ASCII-assuming from_chars
+static_assert(parser::parse("12").as_unsigned_integer<unsigned>() == 12);
+static_assert(parser::parse("-12").as_signed_integer<int>() == -12);
+static_assert(parser::parse("18446744073709551615").as_unsigned_integer<unsigned long long>() == 18446744073709551615ull);
+static_assert(parser::parse("-9223372036854775808").as_signed_integer<long long>() == -9223372036854775807ll - 1);
+
+// serialized integers are spelled in EBCDIC digits (0xF4 is '4')
+static_assert(static_cast<unsigned char>(yk::json20::json(42u).as_string_unchecked()[0]) == 0xF4);
+static_assert(yk::json20::json(-7).as_string_unchecked() == "-7");
+
 int main() {}
