@@ -15,6 +15,7 @@ on:
     paths: &paths-to-detect
       - "include/**/*"
       - "tests/**/*"
+      - "bench/**/*"
       - "cmake/**/*"
       - "CMakeLists.txt"
       - ".github/workflows/**/*"
