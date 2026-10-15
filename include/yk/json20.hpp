@@ -620,6 +620,14 @@ public:
   };
 
 private:
+  // The part of `str` in front of `rest`, which must be a suffix of `str`.
+  // Computed from sizes because iterators of two different string_views must
+  // not be mixed: MSVC's debug iterators reject it, even in constant evaluation.
+  static constexpr std::basic_string_view<charT> consumed(std::basic_string_view<charT> str, std::basic_string_view<charT> rest) noexcept
+  {
+    return str.substr(0, str.size() - rest.size());
+  }
+
   // holds the literal by value so a parser object never refers to the
   // (often function-local) literal it was built from
   template<std::size_t N>
@@ -691,7 +699,7 @@ private:
     {
       if (auto res1 = p1(str); res1.match) {
         if (auto res2 = p2(res1.rest); res2.match) {
-          return {std::basic_string_view<charT>{str.begin(), res2.rest.begin()}, res2.rest};
+          return {consumed(str, res2.rest), res2.rest};
         }
       }
       return {std::nullopt, str};
@@ -729,7 +737,7 @@ private:
       for (auto res = p(rest); res.match && res.rest.size() < rest.size(); res = p(rest)) {
         rest = res.rest;
       }
-      return {std::basic_string_view<charT>{str.begin(), rest.begin()}, rest};
+      return {consumed(str, rest), rest};
     };
   }
 
@@ -896,7 +904,7 @@ private:
       bool const has_exp = bool(res4.match);
       auto const rest = res4.rest;
 
-      std::basic_string_view<charT> match{str.begin(), rest.begin()};
+      std::basic_string_view<charT> match = consumed(str, rest);
 
       if (has_frac || has_exp) {
         YK_JSON20_INVOKE_VISITOR(vis, on_number_floating_point, match, match);
@@ -924,7 +932,7 @@ private:
     YK_JSON20_INVOKE_VISITOR(vis, on_array_start)
     auto res = parser(str);
     if (res.match) {
-      std::basic_string_view<charT> match{str.begin(), res.rest.begin()};
+      std::basic_string_view<charT> match = consumed(str, res.rest);
       YK_JSON20_INVOKE_VISITOR(vis, on_array_finalize, match)
       return {match, res.rest};
     }
@@ -979,7 +987,7 @@ private:
     auto const res3 = lit(quote)(res2.rest);
     if (!res3.match) return {std::nullopt, str};
 
-    std::basic_string_view<charT> const match{str.begin(), res3.rest.begin()};
+    std::basic_string_view<charT> const match = consumed(str, res3.rest);
     std::basic_string_view<charT> const body = *res2.match;
 
     // decode only when there is something to decode; otherwise hand out the input itself
@@ -1053,7 +1061,7 @@ private:
     YK_JSON20_INVOKE_VISITOR(vis, on_object_start)
     auto res = parser(str);
     if (res.match) {
-      std::basic_string_view<charT> match{str.begin(), res.rest.begin()};
+      std::basic_string_view<charT> match = consumed(str, res.rest);
       YK_JSON20_INVOKE_VISITOR(vis, on_object_finalize, match)
       return {match, res.rest};
     }
@@ -1078,7 +1086,7 @@ private:
 
     auto res = parser(str);
     if (res.match) {
-      return {std::basic_string_view<charT>{str.begin(), res.rest.begin()}, res.rest};
+      return {consumed(str, res.rest), res.rest};
     }
     return {std::nullopt, str};
   }
