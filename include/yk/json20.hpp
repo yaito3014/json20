@@ -642,6 +642,7 @@ private:
   static constexpr auto except(Parser const& p) noexcept
   {
     return [p](std::basic_string_view<charT> str) -> parse_result<> {
+      if (str.empty()) return {std::nullopt, str};
       if (auto res = p(str); res.match)
         return {std::nullopt, str};
       else

@@ -128,6 +128,22 @@ TEST_CASE("number grammar", "[parse]")
   CHECK_FALSE(json_parser::try_parse("1e+").has_value());
 }
 
+TEST_CASE("truncated input", "[parse]")
+{
+  // inputs ending inside a string must be rejected, not crash
+  static_assert(!accepts("\""));
+  static_assert(!accepts("\"abc"));
+  static_assert(!accepts("[\"abc"));
+  static_assert(!accepts("{\"a"));
+  static_assert(!accepts("{\"a\":\"b"));
+
+  CHECK_FALSE(json_parser::try_parse("\"").has_value());
+  CHECK_FALSE(json_parser::try_parse("\"abc").has_value());
+  CHECK_FALSE(json_parser::try_parse("[\"abc").has_value());
+  CHECK_FALSE(json_parser::try_parse("{\"a").has_value());
+  CHECK_THROWS_AS(json_parser::parse("\"abc"), std::invalid_argument);
+}
+
 TEST_CASE("array", "[parse]")
 {
   {
