@@ -5,6 +5,7 @@
 #include <array>
 #include <charconv>
 #include <concepts>
+#include <cstddef>
 #include <exception>
 #include <initializer_list>
 #include <limits>
@@ -593,6 +594,10 @@ public:
   {
   }
 
+  // Not a string: before C++23, nullptr converts to basic_string_view through
+  // a null pointer. Null is basic_json().
+  basic_json(std::nullptr_t) = delete;
+
   constexpr basic_json(std::initializer_list<basic_json> il) : basic_json(kind_construct_t<json_value_kind::array>{}, il) {}
 
   constexpr basic_json(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il)
@@ -636,6 +641,8 @@ public:
     emplace_kind<json_value_kind::string>(str);
     return *this;
   }
+
+  basic_json& operator=(std::nullptr_t) = delete;
 
   constexpr basic_json& operator=(std::initializer_list<basic_json> il)
   {

@@ -936,3 +936,25 @@ a = true;   // 修正前: 種類は number_unsigned_integer、字句は "true"
 
 見送った案: 整数用のテンプレートの制約に `!std::same_as<T, bool>` を足す。これでも直るが、代入とコンストラクタで
 書き方がそろわなくなる。`operator=(bool)` ならコンストラクタと同じ形になる。
+
+## 2026-10-15: 修正 — `json(nullptr)` をコンパイルエラーにした（null は `json()`）
+
+README の例を書いていて見つけた。C++20 では `json(nullptr)` も `j = nullptr` もコンパイルでき、実行時に
+異常終了していた（libstdc++ では「basic_string: construction from null is not valid」の例外、libc++ では
+セグメンテーション違反）。
+
+原因: 文字列のコンストラクタは「`basic_string_view<charT>` に変換できる型」を受け付ける。C++20 では
+`nullptr` が `const char*` を経由して `std::string_view` に暗黙に変換できるので、`nullptr` が文字列として
+扱われ、null ポインタから文字列を作っていた。C++23 では `basic_string_view(nullptr_t)` が削除されたので、
+同じコードがコンパイルエラーになる。CI は C++23 と C++26 しか試していなかったので、表に出なかった。
+
+判断: `basic_json(std::nullptr_t)` と `operator=(std::nullptr_t)` を削除（`= delete`）した。C++20 でも
+C++23 と同じくコンパイルエラーになる。null は今までどおり `json()` で作る。
+
+見送った案: `json(nullptr)` を null にする（nlohmann/json と同じ）。書きやすいが、null の書き方が 2 つになり、
+C++ のポインタと JSON の null を暗黙に結びつけることになる。「暗黙の変換はしない」方針に合わせて、まずは
+エラーにした。後から null を作る書き方として許すことはできる（逆に、許したものを後から禁止すると破壊的変更になる）。
+
+あわせて、ライブラリの最低要件である C++20 でテストする翻訳単位（`tests/cxx20.cpp`）を加えた。他のテストは
+C++23 の機能（`<print>` など）を使っているので、CI の行列（C++23 / C++26）とは別に、この翻訳単位だけ常に C++20 で
+ビルドする。C++20 でヘッダがコンパイルできることも、これで CI で確かめられる。
