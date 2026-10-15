@@ -277,6 +277,46 @@ TEST_CASE("float parsing: exact midpoints between doubles", "[number]")
   }
 }
 
+TEST_CASE("float formatting matches std::to_chars", "[number]")
+{
+  double const doubles[] = {0.0, -0.0, 1.0, -1.0, 0.1, 1.5, 1e5, 1e15, 1e16, 1e21, 1e22, 1e-5, 1e-7, 123456789012345680.0, 5e-324,
+                            2.2250738585072014e-308, 1.7976931348623157e308, 1e100, 100.0, 9007199254740993.0, 0.3, 2.0 / 3.0};
+  for (double const x : doubles) {
+    CAPTURE(x);
+    CHECK(number::format_float<char>(x) == std_to_chars(x));
+  }
+  // fixed notation wider than the shortest digits spells the exact integer,
+  // not the shortest digits padded with zeros ("772324892374932000")
+  CHECK(number::format_float<char>(772324892374931968.0) == "772324892374931968");
+  CHECK(number::format_float<char>(1e20 + 16384.0) == "100000000000000016384");
+  CHECK(number::format_float<char>(123456789000.0f) == "123456790528");
+  static_assert(number::format_float<char>(772324892374931968.0) == "772324892374931968");
+  float const floats[] = {0.0f, -0.0f, 1.0f, 0.1f, 1e5f, 1e-5f, 1.17549435e-38f, 1e-45f, 3.4028235e38f, 16777217.0f, 1.0f / 3.0f};
+  for (float const x : floats) {
+    CAPTURE(x);
+    CHECK(number::format_float<char>(x) == std_to_chars(x));
+  }
+
+  std::mt19937_64 rng(1015);
+  for (int i = 0; i < 200000; ++i) {
+    double const x = random_finite<double>(rng);
+    CAPTURE(x);
+    REQUIRE(number::format_float<char>(x) == std_to_chars(x));
+  }
+  for (int i = 0; i < 200000; ++i) {
+    float const x = random_finite<float>(rng);
+    CAPTURE(x);
+    REQUIRE(number::format_float<char>(x) == std_to_chars(x));
+  }
+
+  // other character types spell the same digits
+  CHECK(number::format_float<char16_t>(-1.5e-300) == u"-1.5e-300");
+  CHECK(number::format_float<char32_t>(0.25) == U"0.25");
+  CHECK(number::format_float<wchar_t>(1e22) == L"1e+22");
+  static_assert(number::format_float<char>(0.1) == "0.1");
+  static_assert(number::format_float<char8_t>(1e-7) == u8"1e-07");
+}
+
 TEST_CASE("floating-point values in the DOM", "[number]")
 {
   using yk::json20::json;
@@ -289,6 +329,15 @@ TEST_CASE("floating-point values in the DOM", "[number]")
   // out of range values cannot be read
   CHECK_THROWS_AS(yk::json20::json_parser::parse("1e400").as_floating_point<double>(), std::invalid_argument);
   CHECK_FALSE(yk::json20::json_parser::parse("1e-400").try_as_floating_point<double>().has_value());
+}
+
+TEST_CASE("floating-point values in the DOM: every character type", "[number]")
+{
+  CHECK(yk::json20::wjson(1.5).as_string_unchecked() == L"1.5");
+  CHECK(yk::json20::wjson(1.5).as_floating_point<double>() == 1.5);
+  CHECK(yk::json20::basic_json<char8_t>(-2.5e-300).as_string_unchecked() == u8"-2.5e-300");
+  CHECK(yk::json20::basic_json<char16_t>(0.25f).as_floating_point<float>() == 0.25f);
+  CHECK(yk::json20::basic_json<char32_t>(1e22).as_string_unchecked() == U"1e+22");
 }
 
 TEST_CASE("infinity and NaN are rejected", "[number]")
