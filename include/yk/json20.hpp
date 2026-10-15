@@ -620,15 +620,18 @@ public:
   };
 
 private:
+  // holds the literal by value so a parser object never refers to the
+  // (often function-local) literal it was built from
+  template<std::size_t N>
   struct lit_parser {
-    std::basic_string_view<charT> literal;
+    detail::basic_fixed_string<charT, N> literal;
 
     constexpr auto operator()(std::basic_string_view<charT> str) const noexcept -> parse_result<>
     {
-      if (str.starts_with(literal)) {
+      if (str.starts_with(std::basic_string_view<charT>(literal))) {
         return {
-            str.substr(0, literal.size()),
-            str.substr(literal.size()),
+            str.substr(0, N),
+            str.substr(N),
         };
       } else {
         return {std::nullopt, str};
@@ -636,7 +639,11 @@ private:
     };
   };
 
-  static constexpr auto lit(std::basic_string_view<charT> literal) noexcept { return lit_parser{literal}; }
+  template<std::size_t N>
+  static constexpr auto lit(detail::basic_fixed_string<charT, N> const& literal) noexcept
+  {
+    return lit_parser<N>{literal};
+  }
 
   template<class Parser>
   static constexpr auto except(Parser const& p) noexcept
