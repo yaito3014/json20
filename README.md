@@ -8,7 +8,7 @@ so JSON can be validated and read at compile time as well as at run time.
 - **Every character type**: `char`, `wchar_t`, `char8_t`, `char16_t` and `char32_t`. The grammar
   is written in terms of code points, so parsing also works under non-ASCII execution character
   sets such as EBCDIC
-- **Strict**: input must be RFC 8259 JSON, duplicate object keys are rejected by default, and
+- **Strict**: input must be RFC 8259 JSON, a DOM rejects duplicate object keys by default, and
   accessors never convert between kinds
 - **No dependencies**: a single header, `<yk/json20.hpp>`
 
@@ -81,7 +81,8 @@ Errors are reported by exceptions, and each operation has a non-throwing form:
 | `as_string()`, `as_unsigned_integer<T>()`, ... (`bad_json_access`) | `try_as_string()` returns a pointer, `try_as_unsigned_integer<T>()` an `std::optional` |
 | `at(key)`, `at(index)` (`std::out_of_range` if missing) | `try_at(key)`, `try_at(index)` return a pointer |
 
-Objects with a repeated key are rejected by default. To accept them, choose which value to keep:
+When building a DOM, objects with a repeated key are rejected by default. To accept them, choose
+which value to keep:
 
 ```cpp
 json_parser::parse(R"({"a": 1, "a": 2})",
@@ -123,6 +124,8 @@ struct number_counter {
 number_counter v;
 json_parser::parse(v, R"([1, -2, 3.5, "x"])");  // v.count == 3
 ```
+
+A visitor receives every object member, repeated keys included; handling duplicates is up to it.
 
 ## Limitations
 
