@@ -917,3 +917,22 @@ serializer / deserializer は `char` にしか特殊化されていなかった�
 - 文字列を作るときは `std::basic_string<charT>(first, last)` を使う。`basic_string_view` からのコンストラクタは、
   Clang 18 + libstdc++ 14 で char8_t のときに定数式で評価できなかった（「`_M_construct<const char8_t *>` が未定義」）。
   ポインタの範囲を取るコンストラクタなら評価できる
+
+## 2026-10-15: 修正 — `bool` を代入すると、真偽値ではなく符号なし整数になっていた
+
+前項のテストを書いていて見つけた。`char` でも起きる。
+
+```cpp
+json a = json::array();
+a = true;   // 修正前: 種類は number_unsigned_integer、字句は "true"
+```
+
+原因: `bool` は `std::unsigned_integral` を満たす（整数型で、符号付きではない）。構築には `basic_json(bool)` という
+テンプレートでない完全一致のコンストラクタがあるので正しく真偽値になるが、代入には `bool` 用の `operator=` がなく、
+`template<std::unsigned_integral UInt> operator=(UInt)` が選ばれていた。字句は bool の serializer が作るので
+`"true"` になり、「種類は数値、字句は true」という不整合な値ができていた。`as_unsigned_integer` で読むと例外になる。
+
+修正: コンストラクタと対になる `operator=(bool)` を加えた。テンプレートでない完全一致なので、テンプレートより優先される。
+
+見送った案: 整数用のテンプレートの制約に `!std::same_as<T, bool>` を足す。これでも直るが、代入とコンストラクタで
+書き方がそろわなくなる。`operator=(bool)` ならコンストラクタと同じ形になる。

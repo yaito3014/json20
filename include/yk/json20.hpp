@@ -601,6 +601,13 @@ public:
     if (normalize_object(std::get<2>(data_), false)) throw std::invalid_argument("duplicate key in object");
   }
 
+  // bool satisfies std::unsigned_integral; this exact match keeps it a boolean
+  constexpr basic_json& operator=(bool x)
+  {
+    emplace_kind<json_value_kind::boolean>(serializer<bool, charT>::serialize(x));
+    return *this;
+  }
+
   template<std::unsigned_integral UInt>
   constexpr basic_json& operator=(UInt x)
   {

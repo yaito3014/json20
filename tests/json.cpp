@@ -97,6 +97,17 @@ TEST_CASE("assignment", "[json]")
   a = {std::pair{"foo", 42}, {"bar", 3.14}};
   CHECK(a.at("foo").as_signed_integer<signed>() == 42);
   CHECK(a.at("bar").as_floating_point<double>() == 3.14);
+
+  // bool satisfies std::unsigned_integral, but stays a boolean
+  a = true;
+  CHECK(a.get_kind() == yk::json20::json_value_kind::boolean);
+  CHECK(a.as_boolean() == true);
+  json o = json::object();
+  o["flag"] = false;
+  CHECK(o.at("flag").try_as_boolean() == false);
+  yk::json20::wjson w = yk::json20::wjson::array();
+  w = true;
+  CHECK(w.as_boolean() == true);
 }
 
 TEST_CASE("subscript", "[json]")
