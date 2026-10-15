@@ -18,9 +18,14 @@ yk_json20_add_test(util)
 # EBCDIC support check: all assertions in ebcdic.cpp are static_asserts, so
 # successful compilation is the actual test. Only possible where the compiler
 # can target an EBCDIC execution character set (GCC with iconv; clang cannot).
+# The probe checks that literals are actually translated, not merely that the
+# flag is accepted: MSVC ignores unknown options with a warning.
 include(CheckCXXSourceCompiles)
 set(CMAKE_REQUIRED_FLAGS "-fexec-charset=IBM1047")
-check_cxx_source_compiles("int main() {}" YK_JSON20_HAS_EXEC_CHARSET_IBM1047)
+check_cxx_source_compiles(
+    [[static_assert(static_cast<unsigned char>('A') == 0xC1, "not EBCDIC"); int main() {}]]
+    YK_JSON20_HAS_EXEC_CHARSET_IBM1047
+)
 unset(CMAKE_REQUIRED_FLAGS)
 if(YK_JSON20_HAS_EXEC_CHARSET_IBM1047)
     add_executable(yk_json20_ebcdic_test ebcdic.cpp)
