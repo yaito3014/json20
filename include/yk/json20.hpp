@@ -610,10 +610,12 @@ using u32json_visitor = basic_json_visitor<char32_t>;
 template<class charT>
 class basic_json_parser {
 public:
-  template<class T = std::basic_string_view<charT>>
+  // Every parser only recognizes: on success `match` is the span of the
+  // input it consumed and `rest` what follows; on failure `match` is empty
+  // and `rest` is the untouched input. Both always point into the caller's
+  // input, which therefore must outlive any use of a result.
   struct parse_result {
-    using value_type = T;
-    std::optional<T> match;
+    std::optional<std::basic_string_view<charT>> match;
     std::basic_string_view<charT> rest;
 
     constexpr explicit operator bool() const noexcept { return match.has_value() && rest.empty(); }
@@ -626,7 +628,7 @@ private:
   struct lit_parser {
     detail::basic_fixed_string<charT, N> literal;
 
-    constexpr auto operator()(std::basic_string_view<charT> str) const noexcept -> parse_result<>
+    constexpr auto operator()(std::basic_string_view<charT> str) const noexcept -> parse_result
     {
       if (str.starts_with(std::basic_string_view<charT>(literal))) {
         return {
@@ -648,7 +650,7 @@ private:
   template<class Parser>
   static constexpr auto except(Parser const& p) noexcept
   {
-    return [p](std::basic_string_view<charT> str) -> parse_result<> {
+    return [p](std::basic_string_view<charT> str) -> parse_result {
       if (str.empty()) return {std::nullopt, str};
       if (auto res = p(str); res.match)
         return {std::nullopt, str};
@@ -657,27 +659,15 @@ private:
     };
   }
 
-  template<class T, class U>
-  struct alt_result {
-    using type = std::variant<T, U>;
-  };
-  template<class T>
-  struct alt_result<T, T> {
-    using type = T;
-  };
-
   template<class Parser1, class Parser2>
   struct alt_parser {
-    using T = typename std::invoke_result_t<Parser1, std::basic_string_view<charT>>::value_type;
-    using U = typename std::invoke_result_t<Parser2, std::basic_string_view<charT>>::value_type;
-
     [[no_unique_address]] Parser1 p1;
     [[no_unique_address]] Parser2 p2;
 
-    constexpr auto operator()(std::basic_string_view<charT> str) const noexcept -> parse_result<typename alt_result<T, U>::type>
+    constexpr auto operator()(std::basic_string_view<charT> str) const noexcept -> parse_result
     {
-      if (auto res1 = p1(str); res1.match) return {*res1.match, res1.rest};
-      if (auto res2 = p2(str); res2.match) return {*res2.match, res2.rest};
+      if (auto res1 = p1(str); res1.match) return res1;
+      if (auto res2 = p2(str); res2.match) return res2;
       return {std::nullopt, str};
     };
   };
@@ -696,20 +686,14 @@ private:
 
   template<class Parser1, class Parser2>
   struct seq_parser {
-    using T = typename std::invoke_result_t<Parser1, std::basic_string_view<charT>>::value_type;
-    using U = typename std::invoke_result_t<Parser2, std::basic_string_view<charT>>::value_type;
-
     [[no_unique_address]] Parser1 p1;
     [[no_unique_address]] Parser2 p2;
 
-    constexpr auto operator()(std::basic_string_view<charT> str) const noexcept -> parse_result<std::tuple<T, U>>
+    constexpr auto operator()(std::basic_string_view<charT> str) const noexcept -> parse_result
     {
       if (auto res1 = p1(str); res1.match) {
         if (auto res2 = p2(res1.rest); res2.match) {
-          return {
-              std::make_tuple(*res1.match, *res2.match),
-              res2.rest,
-          };
+          return {std::basic_string_view<charT>{str.begin(), res2.rest.begin()}, res2.rest};
         }
       }
       return {std::nullopt, str};
@@ -731,51 +715,43 @@ private:
   template<class Parser>
   static constexpr auto opt(Parser const& p) noexcept
   {
-    return [p](std::basic_string_view<charT> str) -> parse_result<> {
+    return [p](std::basic_string_view<charT> str) -> parse_result {
       if (auto res = p(str); res.match) return res;
       return {str.substr(0, 0), str};
     };
   }
 
+  // stops as soon as `p` fails or succeeds without consuming anything, so
+  // many(opt(x)) and the like terminate
   template<class Parser>
   static constexpr auto many(Parser const& p) noexcept
   {
-    using T = typename std::invoke_result_t<Parser, std::basic_string_view<charT>>::value_type;
-    return [p](std::basic_string_view<charT> str) -> parse_result<std::vector<T>> {
-      std::vector<T> matches;
-      parse_result<T> res = p(str);
-      while (res.match) {
-        matches.emplace_back(*std::move(res.match));
-        res = p(res.rest);
+    return [p](std::basic_string_view<charT> str) -> parse_result {
+      auto rest = str;
+      for (auto res = p(rest); res.match && res.rest.size() < rest.size(); res = p(rest)) {
+        rest = res.rest;
       }
-      return {std::move(matches), res.rest};
+      return {std::basic_string_view<charT>{str.begin(), rest.begin()}, rest};
     };
   }
 
   template<class Parser, class Delim>
   static constexpr auto sep_by(Parser const& p, Delim const& d) noexcept
   {
-    return [p, d](std::basic_string_view<charT> str) -> parse_result<> {
-      if (auto res = seq(p, many(seq(d, p)))(str); res.match) {
-        return {std::basic_string_view<charT>{str.begin(), res.rest.begin()}, res.rest};
-      }
-      return {std::nullopt, str};
-    };
+    return seq(p, many(seq(d, p)));
   }
 
-  static constexpr parse_result<> ws(std::basic_string_view<charT> str) noexcept
+  static constexpr parse_result ws(std::basic_string_view<charT> str) noexcept
   {
     auto const space = YK_JSON20_WIDEN_STRING(charT, " ");
     auto const lf = YK_JSON20_WIDEN_STRING(charT, "\u000A");
     auto const cr = YK_JSON20_WIDEN_STRING(charT, "\u000D");
     auto const tab = YK_JSON20_WIDEN_STRING(charT, "\u0009");
 
-    auto const parser = many(alt(lit(space), lit(lf), lit(cr), lit(tab)));
-    auto res = parser(str);
-    return {std::basic_string_view<charT>{str.begin(), res.rest.begin()}, res.rest};
+    return many(alt(lit(space), lit(lf), lit(cr), lit(tab)))(str);
   }
 
-  static constexpr parse_result<> cntrl(std::basic_string_view<charT> str) noexcept
+  static constexpr parse_result cntrl(std::basic_string_view<charT> str) noexcept
   {
     auto const control_characters_parser = alt(
         lit(YK_JSON20_WIDEN_STRING(charT, "\u0000")),  //
@@ -841,7 +817,7 @@ private:
   YK_JSON20_INVOKE_VISITOR_SELECTER(__VA_ARGS__, YK_JSON20_INVOKE_VISITOR_ARG4, YK_JSON20_INVOKE_VISITOR_ARG3, YK_JSON20_INVOKE_VISITOR_ARG2)(__VA_ARGS__)
 
   template<class Visitor>
-  static constexpr parse_result<> parse_null(Visitor& vis, std::basic_string_view<charT> str) noexcept
+  static constexpr parse_result parse_null(Visitor& vis, std::basic_string_view<charT> str) noexcept
   {
     constexpr auto null_string = YK_JSON20_WIDEN_STRING(charT, "null");
 
@@ -853,7 +829,7 @@ private:
   }
 
   template<class Visitor>
-  static constexpr parse_result<> parse_boolean(Visitor& vis, std::basic_string_view<charT> str) noexcept
+  static constexpr parse_result parse_boolean(Visitor& vis, std::basic_string_view<charT> str) noexcept
   {
     constexpr auto true_string = YK_JSON20_WIDEN_STRING(charT, "true");
     constexpr auto false_string = YK_JSON20_WIDEN_STRING(charT, "false");
@@ -866,7 +842,7 @@ private:
   }
 
   template<class Visitor>
-  static constexpr parse_result<> parse_number(Visitor& vis, std::basic_string_view<charT> str) noexcept
+  static constexpr parse_result parse_number(Visitor& vis, std::basic_string_view<charT> str) noexcept
   {
     auto const parse0 = lit(YK_JSON20_WIDEN_STRING(charT, "0"));
     auto const parse1to9 =
@@ -930,7 +906,7 @@ private:
   }
 
   template<class Visitor>
-  static constexpr parse_result<> parse_array(Visitor& vis, std::basic_string_view<charT> str) noexcept
+  static constexpr parse_result parse_array(Visitor& vis, std::basic_string_view<charT> str) noexcept
   {
     auto const open_bracket = YK_JSON20_WIDEN_STRING(charT, "[");
     auto const close_bracket = YK_JSON20_WIDEN_STRING(charT, "]");
@@ -950,7 +926,7 @@ private:
   }
 
   template<class Visitor>
-  static constexpr parse_result<> parse_string(Visitor& vis, std::basic_string_view<charT> str) noexcept
+  static constexpr parse_result parse_string(Visitor& vis, std::basic_string_view<charT> str) noexcept
   {
     auto const quote = YK_JSON20_WIDEN_STRING(charT, "\"");
     auto const backslash = YK_JSON20_WIDEN_STRING(charT, "\\");
@@ -980,18 +956,14 @@ private:
     //     lit(YK_JSON20_WIDEN_STRING(charT, "f"))   //
     // );
 
-    auto const escape_sequence = [&](std::basic_string_view<charT> s) -> parse_result<> {
+    auto const escape_sequence = [&](std::basic_string_view<charT> s) -> parse_result {
       if (!s.starts_with(std::basic_string_view<charT>(backslash))) return {std::nullopt, s};
       auto const n = backslash.size() + unescape(s.substr(backslash.size()), nullptr);
       if (n == backslash.size()) return {std::nullopt, s};
       return {s.substr(0, n), s.substr(n)};
     };
 
-    auto const body_parser = [&](std::basic_string_view<charT> s) -> parse_result<> {
-      auto const res = many(alt(except(alt(lit(quote), lit(backslash), cntrl)), escape_sequence))(s);
-      if (!res.match) return {std::nullopt, s};
-      return {std::basic_string_view<charT>{s.begin(), res.rest.begin()}, res.rest};
-    };
+    auto const body_parser = many(alt(except(alt(lit(quote), lit(backslash), cntrl)), escape_sequence));
 
     auto const res1 = lit(quote)(str);
     if (!res1.match) return {std::nullopt, str};
@@ -1060,7 +1032,7 @@ private:
   }
 
   template<class Visitor>
-  static constexpr parse_result<> parse_object(Visitor& vis, std::basic_string_view<charT> str) noexcept
+  static constexpr parse_result parse_object(Visitor& vis, std::basic_string_view<charT> str) noexcept
   {
     auto const open_brace = YK_JSON20_WIDEN_STRING(charT, "{");
     auto const close_brace = YK_JSON20_WIDEN_STRING(charT, "}");
@@ -1083,7 +1055,7 @@ private:
   }
 
   template<class Visitor>
-  static constexpr parse_result<> parse_value(Visitor& vis, std::basic_string_view<charT> str) noexcept
+  static constexpr parse_result parse_value(Visitor& vis, std::basic_string_view<charT> str) noexcept
   {
     auto const parser =
         seq(ws,
