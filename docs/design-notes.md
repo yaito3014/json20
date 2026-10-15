@@ -626,3 +626,106 @@ setup-msvc-dev v4、cpp-warning-notifier v0.7）が実在することも確認�
 - テストが C++23（`<print>` など）を要求するので、ライブラリ本来の C++20 モードは CI で検査していない。
   テスト側を C++20 で書けるようにするかは別途判断する
 - `run-notifier` ジョブは、CppWarningNotifier の GitHub App が json20 にインストールされていないと失敗する
+
+## 2026-10-15: CI 初回実行（PR #1）の結果と修正
+
+20 ジョブ中 6 ジョブだけが成功した。成功したのは GCC 14 の C++23（2 ジョブ）と Clang 21 + libc++ 21（4 ジョブ）。
+失敗の原因は 4 つに分かれた。どれも、それまで GCC 14 と Clang 18 でしか確かめていなかったために見えていなかったもの。
+
+| 失敗した行 | 原因 | 修正 |
+|---|---|---|
+| GCC 14 / C++26（2 ジョブ） | libstdc++ 14 が C++26 モードで EBCDIC に対応していない | json20 から `<ranges>` / `<locale>` を外した |
+| Clang 21 + libstdc++ 14（4 ジョブ） | libstdc++ 14 の `std::bind_front` を clang 21 が再帰的な文法の中で拒否する | 戻り値型を明示したラムダ `bind_visitor` に置き換えた |
+| MSVC 全 8 ジョブ | 従来型プリプロセッサが `__VA_ARGS__` を 1 つの引数として渡す | 引数の数による振り分けをやめ、引数の数ごとのマクロを直接呼ぶようにした |
+| MSVC の Debug（4 ジョブ） | 別々の `string_view` のイテレータを混ぜて範囲を作っていた（こちらのバグ） | 長さから範囲を作る `consumed(str, rest)` に置き換えた |
+
+### 訂正: 手元での「GCC 14 / C++26 で通過」は C++23 だった
+
+CI 追加時のエントリに「C++26 Release (GCC 14) 5/5 通過」と書いたが、これは誤りだった。手元の CMake 3.28 は
+GCC 14 の C++26 用フラグを知らず、`CMAKE_CXX_STANDARD=26` を渡しても**何も言わずに `-std=gnu++23` で
+ビルドしていた**（同じ CMake でも clang 18 には `-std=gnu++26` が付いた）。`build.ninja` の `-std=` を
+数えて発覚した。以降の手元検証は pip で入れた CMake 4.4 で行い、実際に付いた `-std=` を毎回確認している。
+
+教訓: 「C++26 で確認した」と書くなら、実際にコンパイラへ渡ったフラグまで確認する。
+
+### libstdc++ 14 は C++26 モードで EBCDIC に対応していない
+
+C++26 モードの libstdc++ 14 では、`<format>` の内部（`bits/unicode.h` の `__charset_alias_match`）が
+`<charconv>` の表 `__from_chars_alnum_to_val_table` を使う。この表は `'0' + i` を添字にして作られていて、
+ASCII を前提にしている。EBCDIC では `'0'` が 0xF0 で、`char` は符号付きなので -16 になり、
+「array subscript value '-16' is outside the bounds」で定数評価が失敗する。
+
+- 単独で include しただけで失敗するヘッダ（GCC 14.2、`-std=gnu++26 -fexec-charset=IBM1047`）:
+  `<format>`、`<ranges>`、`<locale>`。C++23 モードでは失敗しない
+- json20 は `<ranges>` と `<locale>` を include していたので、EBCDIC + C++26 では json20.hpp を include するだけで
+  コンパイルできなかった。EBCDIC をサポート対象にした以上、これは json20 の制限として扱う
+- `<locale>` は一度も使っていなかった。`<ranges>` は `std::views::reverse` 4 か所のためだけだったので、
+  逆順イテレータ + `std::find_if` に置き換えて両方外した。ranges のアルゴリズムは `<algorithm>` にある
+- 将来 `<format>` などを使いたくなったら、EBCDIC + C++26 との両立を改めて判断する必要がある
+- GCC 15 以降で直っているかは未確認（手元に GCC 15 がない）
+
+### Clang 21 は libstdc++ 14 の `std::bind_front` を再帰的な文法の中で拒否する
+
+libstdc++ 14 の `_Bind_front::operator()` は、explicit object parameter（deducing this）と `std::forward_like` で
+書かれている。json20 の文法は再帰していて（値 → 配列 → 値、値 → オブジェクト → 値）、`bind_front` で包んだパーサを
+組み合わせると、clang 21 は次のエラーを出す:
+
+```
+function 'forward_like<...>' with deduced return type cannot be used before it is defined
+no matching function for call to 'bind_front'
+```
+
+- clang 18 は同じコードを受け付けていた。GCC 14 も受け付ける。clang 21 + libc++ 21 も問題ない
+  （libc++ の `bind_front` は別の実装）
+- 公式のビルド済み Clang 21.1.8（GitHub のリリースアーカイブ）を手元に入れて再現した。修正前は parse.cpp で
+  21 件、main.cpp で 4 件のエラーで、CI と一致した。修正後は 0 件。apt.llvm.org はこの作業環境から
+  接続できなかったので、2 GB のアーカイブを途中再開つきでダウンロードした
+- 修正: `bind_visitor(parser, vis)` が「戻り値型 `parse_result` を明示したラムダ」を返す。中で呼ぶのは普通の
+  関数ポインタなので、再帰の中に推論待ちの型が現れない。`<functional>` も不要になった。`std::tuple` /
+  `std::make_from_tuple` は `<functional>` 経由で使えていただけだったので、`<tuple>` を直接 include した
+
+### MSVC: 従来型プリプロセッサと `__VA_ARGS__`
+
+ビジター呼び出しのマクロ `YK_JSON20_INVOKE_VISITOR(...)` は、`SELECTER(__VA_ARGS__, ARG4, ARG3, ARG2)` で
+引数の数を数えて振り分ける、よくある書き方だった。MSVC の既定の（従来型）プリプロセッサは、`__VA_ARGS__` を
+別のマクロに渡すとき 1 つの引数として扱う。そのため振り分けが常に間違い（warning C4003）、12 か所すべてで
+「'on_null': undeclared identifier」などの構文エラーになった。`/Zc:preprocessor` を付ければ規格準拠の
+プリプロセッサになるが、既定では無効。
+
+検討した選択肢:
+
+1. `EXPAND(x) x` で 1 段かませる定番の回避策。MSVC で動くことは広く知られているが、手元で確かめる手段がない
+   （clang の `-fms-compatibility` はこの挙動を再現しないことを確認した）
+2. `/Zc:preprocessor` を必須にする（CMake の INTERFACE オプションで付ける）。ヘッダオンリーのライブラリが
+   利用者にコンパイラオプションを強制することになるので却下
+3. **引数の数による振り分けをやめ、呼び出し箇所で `_ARG2` / `_ARG3` / `_ARG4` を直接呼ぶ（採用）**。
+   可変長引数を使わないので、どのプリプロセッサでも同じに展開される。手元で検証できない以上、
+   一番確実な方法を選んだ
+
+### MSVC の Debug: 別々の `string_view` のイテレータを混ぜていた
+
+パーサはマッチ範囲を `string_view{str.begin(), rest.begin()}` で作っていた（7 か所）。`str` と `rest` は
+同じ文字配列を指す別々の `string_view` オブジェクト。MSVC のデバッグ用 `string_view` イテレータは、
+`operator-` で両者が同じビューのものかを検査し、違えば `_CrtDbgReport` を呼ぶ。これは constexpr ではないので、
+定数評価がすべて失敗した（`static_assert` で C2131、`checked_string` で C7595）。Release では検査がないので
+この失敗は出ない。
+
+- これは MSVC の過剰な検査ではなく、こちらのバグ。標準は、別の範囲に属するイテレータ同士の差に意味を与えていない
+  （たまたま同じ配列を指していても）
+- 修正: `consumed(str, rest)` = `str.substr(0, str.size() - rest.size())`。「`rest` は `str` の末尾部分」という
+  `parse_result` の不変条件だけに依存し、イテレータを使わない
+- 手元では再現できない（libstdc++ と libc++ の `string_view` イテレータはただのポインタ）
+
+### 未解決の問いへの答え: libc++ 21 では `basic_json` を定数式で作れる
+
+Clang 21 + libc++ 21 では、`static_assert(json{}.get_kind() == json_value_kind::null)` などの
+`basic_json` の定数式構築が**通った**。比較:
+
+| 標準ライブラリ | `variant<basic_string, …>` の定数式構築 |
+|---|---|
+| libstdc++ 14（GCC 14） | 通る |
+| libstdc++ 14（Clang 18 / 21） | 失敗（placement new を拒否） |
+| libc++ 18 | 失敗（`variant` がリテラル型でない） |
+| libc++ 21 | **通る** |
+
+「constexpr パースの到達点」を考えるときの前提が変わる: Clang でも libc++ を使えば、DOM の定数式構築まで届く。
