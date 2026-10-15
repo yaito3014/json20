@@ -109,13 +109,11 @@ functions and supports `char` only.
 ## Other character types
 
 Every type has a version for each character type: `wjson` / `wjson_parser` for `wchar_t`, and
-`u8json`, `u16json` and `u32json` likewise. Strings, numbers and booleans convert the same way in
-all of them.
+`u8json`, `u16json` and `u32json` likewise.
 
 ```cpp
-u16json const doc = u16json_parser::parse(u"{\"name\": \"json20\", \"ok\": true}");
+u16json const doc = u16json_parser::parse(u"{\"name\": \"json20\", \"id\": 7}");
 doc.at(u"name").as_string();  // u"json20"
-doc.at(u"ok").as_boolean();   // true
 ```
 
 ## Streaming with a visitor
