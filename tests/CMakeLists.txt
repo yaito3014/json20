@@ -1,5 +1,9 @@
 include(CTest)
 
+option(JSON20_CI "for CI" OFF)
+
+set(CMAKE_COLOR_DIAGNOSTICS ${JSON20_CI})
+
 function(yk_json20_add_test test_name)
     set(target_name yk_json20_${test_name}_test)
     add_executable(${target_name} ${test_name}.cpp)

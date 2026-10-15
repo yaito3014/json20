@@ -1,0 +1,152 @@
+name: Test
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - main
+    paths: &paths-to-detect
+      - "include/**/*"
+      - "tests/**/*"
+      - "cmake/**/*"
+      - "CMakeLists.txt"
+      - ".github/workflows/**/*"
+  pull_request:
+    branches:
+      - main
+    paths: *paths-to-detect
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - name: ubuntu
+            version: 24.04
+          - name: windows
+            version: 2025-vs2026
+        build-type:
+          - Debug
+          - Release
+        compiler:
+          - name: GCC
+            display: GCC
+            version: 14
+            executable: g++-14
+          - name: Clang
+            display: Clang
+            version: 21
+            executable: clang++-21
+          # libc++ and libstdc++ differ in what they allow in constant
+          # evaluation (std::variant) and in from_chars coverage
+          - name: Clang
+            display: Clang-libc++
+            version: 21
+            executable: clang++-21
+            cxxflags: -stdlib=libc++
+          - name: MSVC
+            display: MSVC
+            version: 2022
+            executable: cl
+            toolset: "14.44"
+          - name: MSVC
+            display: MSVC
+            version: 2026
+            executable: cl
+            toolset: "14.51"
+        cxx-version: [23, 26]
+        exclude:
+          - os:
+              name: windows
+            compiler:
+              name: GCC
+          - os:
+              name: windows
+            compiler:
+              name: Clang
+          - os:
+              name: ubuntu
+            compiler:
+              name: MSVC
+    name: C++${{ matrix.cxx-version }} ${{ matrix.build-type }} (${{ matrix.compiler.display }} ${{ matrix.compiler.version }} on ${{ matrix.os.name }})
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Init Ubuntu
+        if: matrix.os.name == 'ubuntu'
+        run: |
+          echo "set man-db/auto-update false" | sudo debconf-communicate
+          sudo dpkg-reconfigure man-db
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+      - name: Init Windows
+        if: matrix.os.name == 'windows'
+        run: choco install ninja -y
+      - name: Setup GCC
+        if: matrix.compiler.name == 'GCC'
+        run: |
+          sudo apt-get install -y g++-${{ matrix.compiler.version }}
+      - name: Setup Clang
+        if: matrix.compiler.name == 'Clang'
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x ./llvm.sh
+          sudo ./llvm.sh ${{ matrix.compiler.version }} all
+      # Ninja (not the Visual Studio generator) so the toolset selected here
+      # is the one that actually compiles
+      - name: Setup MSVC
+        if: matrix.compiler.name == 'MSVC'
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: x64
+          toolset: ${{ matrix.compiler.toolset }}
+      - name: Restore deps from cache
+        id: cache-restore
+        uses: actions/cache/restore@v6
+        with:
+          path: build/_deps
+          key: ${{ matrix.cxx-version }}-${{ matrix.build-type }}-${{ matrix.compiler.display }}-${{ matrix.compiler.version }}-${{ matrix.os.name }}-${{ matrix.os.version }}
+      # CMAKE_CXX_FLAGS_INIT, not CMAKE_CXX_FLAGS: the platform defaults
+      # (MSVC's /EHsc among them) are appended to it rather than replaced
+      - name: Configure
+        run: >
+          cmake -G Ninja
+          -DCMAKE_BUILD_TYPE=${{ matrix.build-type }}
+          -DCMAKE_CXX_STANDARD=${{ matrix.cxx-version }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.executable }}
+          "-DCMAKE_CXX_FLAGS_INIT=${{ matrix.compiler.cxxflags }}"
+          -DJSON20_CI=ON
+          -Bbuild .
+      - name: Build tests
+        run: |
+          echo "CPPWARNINGNOTIFIER_LOG_MARKER"
+          cmake --build build --config ${{ matrix.build-type }}
+      - name: Save deps to cache
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: build/_deps
+          key: ${{ steps.cache-restore.outputs.cache-primary-key }}
+      - name: Run test
+        run: |
+          ctest --test-dir build -C ${{ matrix.build-type }} --output-on-failure
+  run-notifier:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: iris-cpp/cpp-warning-notifier@v0.7
+        with:
+          RUN_ID: ${{ github.run_id }}
+          JOB_ID: ${{ job.check_run_id }}
+          JOB_REGEX: C\+\+(?<cppVersion>\d+) (?<config>.+) \((?<vendorName>.+) (?<vendorVersion>.+) on (?<osName>.+)\)
+          STEP_REGEX: Build.+
+          ROW_HEADERS: '["osName", "vendorName", "vendorVersion", "config"]'
+          COLUMN_HEADER: cppVersion

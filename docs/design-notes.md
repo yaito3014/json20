@@ -557,3 +557,72 @@ clang 18 + libstdc++ 14:
 これで「clang 18 + libstdc++ 14 では `checked_string` が機能しない」問題（2026-10-15 訂正エントリ）は解消した。
 残っているのは `basic_json` 自体を定数式で作る場合（`variant<basic_string, …>`）だけで、これは
 「constexpr パースの到達点」の問題として別に扱う。
+
+## 2026-10-15: CI（GitHub Actions）を追加
+
+目的: これまで CMake のテストは GCC でしか回っておらず、clang で `checked_string` が動かない問題に
+main の時点から誰も気づかなかった。コンパイラ差を継続的に観測する仕組みとして CI を入れる。
+コンパイラ差は記事の一次情報でもあるので、ログが自動で残ること自体に価値がある。
+
+参考にしたもの: 作者の他リポジトリ `yk_util`（`run_test.yml`、2025-08）と `polyfill`（`test.yml`、2026-07）。
+新しい `polyfill` の書き方に揃えた: `concurrency` による古い実行の取り消し、`paths` のアンカー、
+`build/_deps`（Catch2）のキャッシュ、警告集計用 `iris-cpp/cpp-warning-notifier` と、それが正規表現で読む
+ジョブ名の形式 `C++<版> <構成> (<処理系> <版> on <OS>)`。
+
+行列（20 ジョブ）: {ubuntu 24.04, windows 2025-vs2026} × {Debug, Release} × {C++23, C++26} ×
+{GCC 14, Clang 21 + libstdc++, Clang 21 + libc++, MSVC 2022 (toolset 14.44), MSVC 2026 (toolset 14.51)}。
+OS と処理系の組は Linux に GCC / Clang、Windows に MSVC。
+
+`polyfill` から意図的に変えた点:
+
+- **Clang を libstdc++ と libc++ の両方で回す**: 定数評価で許されること（`std::variant`）と
+  `from_chars` の対応範囲が標準ライブラリで違うため。下記の libc++ 18 の観測も参照
+- **Windows でも Ninja を使う**: Visual Studio ジェネレータは、`setup-msvc-dev` で選んだ toolset の環境変数を
+  無視して VS 既定の toolset でビルドする。そのため、行列の「MSVC 2022 (14.44)」の行が実際には別の toolset で
+  ビルドされうる。Ninja なら環境の `cl` がそのまま使われる
+- **追加のフラグは `CMAKE_CXX_FLAGS_INIT` で渡す**: `-DCMAKE_CXX_FLAGS=`（空）を渡すと、MSVC で CMake が
+  既定で入れる `/EHsc` などが消える（`yk_util` が MSVC に `/EHsc` を明示していたのはこのためと推測）。
+  `_INIT` にはプラットフォーム既定値が追記されるので消えない
+- `permissions` に `contents: read` を明示（`polyfill` は `id-token: write` だけ）
+- テストディレクトリ名の違い（`test/` ではなく `tests/`）と、`cmake/**` / `CMakeLists.txt` を監視対象に追加
+
+CMake 側: `polyfill` の `YK_POLYFILL_CI` と同じ役割の `JSON20_CI` オプション（色付き診断）を追加した。
+名前は既存の `JSON20_INSTALL` に揃えた。
+
+EBCDIC テスト: 前のコミットで、有効化の判定を「`-fexec-charset=IBM1047` が通るか」から
+「リテラルが実際に EBCDIC に翻訳されるか」（`'A' == 0xC1` を `static_assert`）に変えた。
+MSVC は知らないオプションを警告（D9002）だけで無視するので、旧判定だと MSVC で EBCDIC テストが有効になり、
+翻訳されないまま失敗するところだった。CI では GCC の行だけで EBCDIC テストが走る。
+
+手元での検証（ワークフローと同じ CMake コマンドで実行）:
+
+| 行 | 結果 |
+|---|---|
+| C++26 Release (GCC 14) | 5/5 通過（EBCDIC を含む） |
+| C++23 Debug (Clang 18 + libstdc++) | 4/4 通過（EBCDIC は判定で除外） |
+| C++26 Debug (Clang 18 + libc++ 18) | ビルド失敗（下記） |
+
+ワークフローの YAML は actionlint で検査した。行列の展開（20 ジョブ）と、ジョブ名が警告集計の正規表現で
+意図どおりに分解されることも確認した。参照している外部アクションのバージョン（checkout v7、cache v6、
+setup-msvc-dev v4、cpp-warning-notifier v0.7）が実在することも確認した。
+
+### コンパイラ挙動メモ — libc++ 18
+
+- 浮動小数点の `std::from_chars` が**ない**。`double&` が `bool` に変換され、bool 誤用防止のために
+  `= delete` された `from_chars(const char*, const char*, bool, int)` が選ばれて
+  「call to deleted function」になる。エラーメッセージからは原因がわかりにくい。
+  libc++ に `from_chars_floating_point.h` が入ったのは LLVM 20（release/19.x には無く、20.x にある）。
+  CI の Clang 21 では問題にならないはず
+- `std::variant<std::string, …>` を定数式で作れない点は libstdc++ と同じだが、**理由が違う**。
+  libc++ 18 は `variant` 自体を「リテラル型でない」と判定する（libstdc++ は placement new を拒否）
+- パーサ部分（`checked_string` の経路）は libc++ 18 でも定数評価できた。コンビネータを範囲に変えた効果
+- libc++ 21 で `basic_json` を定数式で作れるかは、CI の結果で確認する（未解決の問いの 1 つ）
+
+未検証・既知の限界:
+
+- **MSVC ではまだ一度もビルドしていない**。初回の CI で失敗する可能性が高い。それ自体が記録すべき一次情報
+- トリガーは `polyfill` と同じく main への push と main 向けの PR だけ。このブランチの push では走らない。
+  最初の実行は PR を作ったとき
+- テストが C++23（`<print>` など）を要求するので、ライブラリ本来の C++20 モードは CI で検査していない。
+  テスト側を C++20 で書けるようにするかは別途判断する
+- `run-notifier` ジョブは、CppWarningNotifier の GitHub App が json20 にインストールされていないと失敗する
