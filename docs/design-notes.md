@@ -1019,3 +1019,27 @@ B を採用しない理由: B の利点は「実行時に速い（参照 1 回�
 - `variant_b.hpp` と計測一式（`measure.sh`、`bench_runtime.cpp`、`tu_*.cpp`）: 比較の記録として
 
 MSVC で B の表を定数評価できるかは、CI にかける前に方針が決まったので未確認のまま。
+
+## 2026-10-15: 実装 — 5 の累乗の表（A）をヘッダに取り込む
+
+前項の判断どおり、試作（`746d7fc`）の A をライブラリに取り込んだ。
+
+- `include/yk/json20.hpp` の `detail::number` に、128 ビットの演算（`u128`、`umul128`）と `pow5` を置いた。
+  `pow5::floor(q)` が F(q) を復元し、`eisel_lemire(q)`、`dragonbox_binary64(k)`、`dragonbox_binary32(k)` が
+  それぞれのライブラリの表の値を F から導く
+- `umul128` は `__SIZEOF_INT128__` があれば `unsigned __int128` を使い、なければ（MSVC）32 ビットずつに分けて
+  掛ける。MSVC の `_umul128` は定数式で使えないので、移植版の方が都合がよい
+- 生成スクリプトは `tools/gen_pow5_table.py` にまとめた。ヘッダの定数を標準出力に出し、照合用の全項目
+  （`tests/pow5_reference.inc`、669 行）を書き出す。補正値が 0〜3 に収まることもスクリプトの中で確かめる。
+  出力した定数は試作のものと一致した
+- テスト（`tests/number.cpp`）は、全 669 項目を実行時と `static_assert` の両方で照合する
+
+### MSVC の定数評価の上限への備え
+
+試作の検証では 669 項目を 1 回の定数評価で照合していた。MSVC の定数評価の上限（`/constexpr:steps`）は
+GCC や clang よりずっと小さいと言われており、手元では確かめられない。そこで `static_assert` を
+32 項目ずつ（変数テンプレート 1 つにつき 1 回の定数評価）に分けた。
+
+代わりの目安として、clang の上限を `-fconstexpr-steps=30000`（既定は 1,048,576）まで下げても、
+`tests/number.cpp` の定数評価はすべて通った。浮動小数点のパースの `static_assert`（多倍長整数を使う
+20 桁超の入力を含む）も同じ条件で通る。

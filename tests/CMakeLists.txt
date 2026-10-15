@@ -16,6 +16,7 @@ endfunction()
 
 yk_json20_add_test(json)
 yk_json20_add_test(main)
+yk_json20_add_test(number)
 yk_json20_add_test(parse)
 yk_json20_add_test(util)
 
