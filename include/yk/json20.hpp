@@ -9,9 +9,7 @@
 #include <functional>
 #include <initializer_list>
 #include <limits>
-#include <locale>
 #include <optional>
-#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -558,7 +556,7 @@ public:
   constexpr void on_array_start() { stack_.emplace_back(start_tag{}); }
   constexpr void on_array_finalize()
   {
-    auto i = std::ranges::find_if(stack_ | std::views::reverse, [](auto const& var) { return std::holds_alternative<start_tag>(var); }).base();
+    auto i = std::find_if(stack_.rbegin(), stack_.rend(), [](auto const& var) { return std::holds_alternative<start_tag>(var); }).base();
     std::vector<basic_json<charT>> vec;
     for (auto j = i; j != stack_.end(); ++j) {
       vec.emplace_back(std::get<basic_json<charT>>(std::move(*j)));
@@ -568,14 +566,14 @@ public:
   }
   constexpr void on_array_abort()
   {
-    auto i = std::ranges::find_if(stack_ | std::views::reverse, [](auto const& var) { return std::holds_alternative<start_tag>(var); }).base();
+    auto i = std::find_if(stack_.rbegin(), stack_.rend(), [](auto const& var) { return std::holds_alternative<start_tag>(var); }).base();
     stack_.erase(i - 1, stack_.end());
   }
 
   constexpr void on_object_start() { stack_.emplace_back(start_tag{}); }
   constexpr void on_object_finalize()
   {
-    auto i = std::ranges::find_if(stack_ | std::views::reverse, [](auto const& var) { return std::holds_alternative<start_tag>(var); }).base();
+    auto i = std::find_if(stack_.rbegin(), stack_.rend(), [](auto const& var) { return std::holds_alternative<start_tag>(var); }).base();
     std::vector<std::pair<std::basic_string<charT>, basic_json<charT>>> vec;
     for (auto j = i; j != stack_.end(); j += 2) {
       vec.emplace_back(std::get<basic_json<charT>>(*j).as_string(), std::get<basic_json<charT>>(*(j + 1)));
@@ -586,7 +584,7 @@ public:
   }
   constexpr void on_object_abort()
   {
-    auto i = std::ranges::find_if(stack_ | std::views::reverse, [](auto const& var) { return std::holds_alternative<start_tag>(var); }).base();
+    auto i = std::find_if(stack_.rbegin(), stack_.rend(), [](auto const& var) { return std::holds_alternative<start_tag>(var); }).base();
     stack_.erase(i - 1, stack_.end());
   }
 
