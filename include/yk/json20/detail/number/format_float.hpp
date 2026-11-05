@@ -61,14 +61,14 @@ constexpr charT* write_digits(charT* last, UInt value) noexcept
 // member template it delegates to as undefined. At run time the constructor
 // is faster.
 template<class charT>
-constexpr std::basic_string<charT> make_string(charT const* first, int length)
+constexpr std::basic_string<charT> make_string(charT const* first, std::size_t length)
 {
   if (std::is_constant_evaluated()) {
     std::basic_string<charT> out;
-    out.append(first, std::size_t(length));
+    out.append(first, length);
     return out;
   }
-  return std::basic_string<charT>(first, std::size_t(length));
+  return std::basic_string<charT>(first, length);
 }
 
 template<class charT, class Float>
