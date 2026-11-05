@@ -1409,3 +1409,66 @@ json20 が対応をうたう EBCDIC の実際の環境は主に z/OS なので�
 - 汎用の経路は、IEEE の `double` にも適用して高速な経路とビット単位で突き合わせることで、IEEE しかない CI でも検証できる
 - `std::float32_t` / `std::float64_t` を高速な経路に入れるのも、`ieee754` の特殊化と `ieee754_binary` の型の列挙を
   足すだけで済む
+
+## 2026-11-05: 設計判断 — ヘッダを分割し、単一ヘッダは生成して配布する（作者判断）
+
+`include/yk/json20.hpp` は 2,350 行を超え、数値変換の内部（5 の累乗の表、Eisel-Lemire、Dragonbox）と
+DOM・パーサが 1 つのファイルに同居していた。作者の方針は「ヘッダを分割したいが、単一ヘッダの提供は続けたい」。
+
+### 判断（作者と合意）
+
+- ソースは `include/yk/json20/` 以下に分割する。`include/yk/json20.hpp` は、公開の部品を include するだけの
+  入口になる。利用者の `#include <yk/json20.hpp>` は変わらない
+- 単一ヘッダは `tools/amalgamate.py` で生成し、`single_include/yk/json20.hpp` としてリポジトリに置く
+  （nlohmann/json と同じ形）。1 ファイルをコピーするだけで使える
+- CI で、生成物が最新であること（`--check`）と、生成物だけでテストが通ること（`-DJSON20_SINGLE_INCLUDE=ON`）を
+  確かめる。後者は GCC 14 の 1 ジョブだけにした（中身は分割版と同じコードなので、全コンパイラで繰り返す必要はない）
+- 分割は、PR #8 のマージを待ってから行う（大きな移動とほかの変更が衝突しないように）
+
+見送った案: 入口のヘッダだけを用意し、単一ファイルは生成しない。1 ファイルをコピーするだけで使える、という
+これまでの手軽さがなくなる。
+
+### 分け方
+
+既存の区切り（コメントの見出し）に沿って、コードを書き換えずに切り出した。切り出しはスクリプトで行い、
+元のファイルと行の集合が一致すること（名前空間の開閉と空行を除く）を確かめた。
+
+| ファイル | 中身 |
+|---|---|
+| `detail/fixed_string.hpp` | `basic_fixed_string`、`select_str`、`YK_JSON20_WIDEN_STRING` |
+| `detail/number/u128.hpp` | 128 ビットの演算 |
+| `detail/number/pow5.hpp` | 圧縮した 5 の累乗の表（A 方式）と、そこから各ライブラリの表を導く関数 |
+| `detail/number/ieee754.hpp` | IEEE 754 の形式の定数、`ieee754_binary`、`self_converted` |
+| `detail/number/parse_float.hpp` | Eisel-Lemire、多倍長整数による正確な比較、`parse_float` |
+| `detail/number/dragonbox.hpp` | Dragonbox |
+| `detail/number/format_float.hpp` | `write_digits`、`format_float` |
+| `conversion.hpp` | `serializer` / `deserializer` |
+| `json.hpp` | `basic_json` と、種類・例外・パースのオプション |
+| `visitor.hpp` | `basic_json_visitor` |
+| `parser.hpp` | `basic_json_parser` |
+| `checked_string.hpp` | `basic_noop_visitor`、`basic_checked_string` |
+
+- 各ファイルは、それだけを include してもコンパイルできる（自己完結）。必要な標準ヘッダは、ファイルごとに
+  使っている名前から決めた。CMake の `yk_json20_self_contained` が、ファイルごとに「2 回 include するだけの翻訳単位」を
+  C++20 でコンパイルして確かめる（インクルードガードの確認も兼ねる）。手元では GCC 14、Clang 18 + libstdc++、
+  Clang 18 + libc++ で通った
+- 部品どうしの include は `<yk/json20/...>` の形で書く。生成スクリプトは、この形の include を見つけて中身に置き換える
+
+### 生成スクリプト
+
+- 入口から順に、`#include <yk/json20/...>` を中身に置き換える。各ファイルは最初に出会ったところで 1 回だけ展開する
+  （依存先が先に来る）
+- 標準ヘッダの include は、最初の 1 回だけ残す
+- 部品のインクルードガードは残す。単一ヘッダと分割版を同じ翻訳単位で混ぜても、二重定義にならない
+- `#if` の中にある include は、条件ごと残さないと意味が変わるので、スクリプトの中で禁止している（今は 1 つもない）
+- 展開の順序は元のファイルと異なる（各部品の依存先が先に来るため）が、コードの行の集合は元のファイルと一致する
+
+### 計測（GCC 14、-O0、`#include <yk/json20.hpp>` だけの翻訳単位、15 回を交互に計測した中央値）
+
+| 版 | 時間 |
+|---|---|
+| 分割前の 1 ファイル | 0.78 秒 |
+| 分割版（`include/`） | 0.81 秒 |
+| 生成した単一ヘッダ（`single_include/`） | 0.81 秒 |
+
+差は 0.03 秒で、計測のばらつきの範囲。ファイルを開く回数が増えても、コンパイル時間はほとんど変わらない。

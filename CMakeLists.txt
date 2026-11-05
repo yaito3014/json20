@@ -15,11 +15,31 @@ add_library(json20 INTERFACE)
 
 target_compile_features(json20 INTERFACE cxx_std_20)
 
-file(GLOB_RECURSE YK_JSON20_HEADERS CONFIGURE_DEPENDS include/*.hpp)
+# single_include/ holds the same library as one generated file
+# (tools/amalgamate.py); the option builds and installs that instead
+option(
+    JSON20_SINGLE_INCLUDE
+    "use the generated single header in single_include/ instead of include/"
+    OFF
+)
+if(JSON20_SINGLE_INCLUDE)
+    set(YK_JSON20_INCLUDE_DIR single_include)
+else()
+    set(YK_JSON20_INCLUDE_DIR include)
+endif()
+
+file(
+    GLOB_RECURSE YK_JSON20_HEADERS
+    CONFIGURE_DEPENDS
+    ${YK_JSON20_INCLUDE_DIR}/*.hpp
+)
 
 target_sources(
     json20
-    INTERFACE FILE_SET HEADERS BASE_DIRS include FILES ${YK_JSON20_HEADERS}
+    INTERFACE
+        FILE_SET HEADERS
+        BASE_DIRS ${YK_JSON20_INCLUDE_DIR}
+        FILES ${YK_JSON20_HEADERS}
 )
 
 if(PROJECT_IS_TOP_LEVEL)

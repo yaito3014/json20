@@ -10,7 +10,8 @@ so JSON can be validated and read at compile time as well as at run time.
   execution character sets such as EBCDIC
 - **Strict**: input must be RFC 8259 JSON, a DOM rejects duplicate object keys by default, and
   accessors never convert between kinds
-- **No dependencies**: a single header, `<yk/json20.hpp>`
+- **No dependencies**: one header, `<yk/json20.hpp>`, also available as a single self-contained
+  file
 
 ## Quick start
 
@@ -157,7 +158,7 @@ A visitor receives every object member, repeated keys included; handling duplica
 
 ## Installation
 
-Copy `include/yk/json20.hpp`, or use CMake:
+Copy `single_include/yk/json20.hpp`, a single file containing the whole library, or use CMake:
 
 ```cmake
 include(FetchContent)
@@ -182,6 +183,11 @@ ctest --test-dir build
 
 The tests need C++23 and use Catch2, which CMake downloads automatically. Projects that use
 json20 through CMake do not download it.
+
+The sources are split into parts under `include/yk/json20/`; `single_include/yk/json20.hpp` is
+generated from them. After changing a header, regenerate it with `python3 tools/amalgamate.py`
+(CI fails if it is out of date). `-DJSON20_SINGLE_INCLUDE=ON` builds the tests against the
+generated file instead of the parts.
 
 ## License
 
