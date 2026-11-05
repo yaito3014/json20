@@ -9,9 +9,10 @@
 #include <charconv>
 #include <concepts>
 #include <cstddef>
-#include <iterator>
 #include <limits>
 #include <stdexcept>
+// std::begin / std::end come from <string>: <iterator> does not compile in
+// C++26 mode with libstdc++ 14 under an EBCDIC execution character set
 #include <string>
 #include <string_view>
 #include <system_error>

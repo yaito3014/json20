@@ -1472,3 +1472,17 @@ DOM・パーサが 1 つのファイルに同居していた。作者の方針�
 | 生成した単一ヘッダ（`single_include/`） | 0.81 秒 |
 
 差は 0.03 秒で、計測のばらつきの範囲。ファイルを開く回数が増えても、コンパイル時間はほとんど変わらない。
+
+### 追記: 分割後、EBCDIC + C++26 の CI が失敗した（`<iterator>`）
+
+分割の PR の CI で、GCC 14 / C++26 の 2 ジョブが EBCDIC のテストで失敗した。前に記録した
+「libstdc++ 14 は C++26 モードで EBCDIC に対応していない」問題と同じ（`<charconv>` の表の添字が -16 になる）。
+
+原因: 分割のときに、`std::begin` / `std::end` を使う 2 つの部品（`conversion.hpp`、`detail/number/format_float.hpp`）へ
+`<iterator>` を加えていた。手元で調べると、GCC 14 の `-std=gnu++26 -fexec-charset=IBM1047` では
+`<iterator>` と `<memory>` も、単独で include しただけで失敗する（前の記録では `<format>`、`<ranges>`、`<locale>` だけを
+挙げていた）。分割前のヘッダは `<iterator>` を include していなかった。
+
+修正: `<iterator>` を外した。`std::begin` / `std::end` は `<string>` でも宣言されることが規格で決まっているので、
+その旨を include の横にコメントで残した。手元の自己完結の確認は C++20 で行っていたので、この失敗は CI の
+EBCDIC + C++26 のジョブで初めて見つかった。

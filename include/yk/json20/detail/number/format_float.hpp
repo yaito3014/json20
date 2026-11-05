@@ -9,7 +9,8 @@
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
-#include <iterator>
+// std::begin / std::end come from <string>: <iterator> does not compile in
+// C++26 mode with libstdc++ 14 under an EBCDIC execution character set
 #include <string>
 #include <type_traits>
 

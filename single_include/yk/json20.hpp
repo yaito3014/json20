@@ -694,7 +694,8 @@ constexpr decimal_fp<typename ieee754<Float>::carrier_uint> to_decimal(Float x) 
 
 #endif  // YK_JSON20_DETAIL_NUMBER_DRAGONBOX_HPP
 
-#include <iterator>
+// std::begin / std::end come from <string>: <iterator> does not compile in
+// C++26 mode with libstdc++ 14 under an EBCDIC execution character set
 #include <string>
 #include <type_traits>
 
@@ -1204,6 +1205,8 @@ constexpr std::pair<Float, std::size_t> parse_float(std::basic_string_view<charT
 
 #endif  // YK_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP
 
+// std::begin / std::end come from <string>: <iterator> does not compile in
+// C++26 mode with libstdc++ 14 under an EBCDIC execution character set
 #include <system_error>
 #include <tuple>
 
