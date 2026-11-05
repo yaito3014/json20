@@ -23,28 +23,6 @@ namespace detail::number {
 
 namespace dragonbox {
 
-constexpr std::uint32_t rotr32(std::uint32_t n, unsigned r) noexcept
-{
-  r &= 31;
-  return (n >> r) | (n << ((32 - r) & 31));
-}
-
-constexpr std::uint64_t rotr64(std::uint64_t n, unsigned r) noexcept
-{
-  r &= 63;
-  return (n >> r) | (n << ((64 - r) & 63));
-}
-
-constexpr int floor_log2(std::uint64_t n) noexcept
-{
-  int count = -1;
-  while (n != 0) {
-    ++count;
-    n >>= 1;
-  }
-  return count;
-}
-
 constexpr int floor_log10_pow2(int e) noexcept { return (e * 315653) >> 20; }
 constexpr int floor_log2_pow10(int e) noexcept { return (e * 1741647) >> 19; }
 constexpr int floor_log10_pow2_minus_log10_4_over_3(int e) noexcept { return (e * 631305 - 261663) >> 21; }
@@ -97,17 +75,17 @@ struct format<float> {
 
   static constexpr void remove_trailing_zeros(std::uint32_t& significand, int& exponent) noexcept
   {
-    auto r = rotr32(std::uint32_t(significand * UINT32_C(184254097)), 4);
+    auto r = std::rotr(std::uint32_t(significand * UINT32_C(184254097)), 4);
     auto b = r < UINT32_C(429497);
     auto s = int(b);
     significand = b ? r : significand;
 
-    r = rotr32(std::uint32_t(significand * UINT32_C(42949673)), 2);
+    r = std::rotr(std::uint32_t(significand * UINT32_C(42949673)), 2);
     b = r < UINT32_C(42949673);
     s = s * 2 + b;
     significand = b ? r : significand;
 
-    r = rotr32(std::uint32_t(significand * UINT32_C(1288490189)), 1);
+    r = std::rotr(std::uint32_t(significand * UINT32_C(1288490189)), 1);
     b = r < UINT32_C(429496730);
     s = s * 2 + b;
     significand = b ? r : significand;
@@ -157,22 +135,22 @@ struct format<double> {
 
   static constexpr void remove_trailing_zeros(std::uint64_t& significand, int& exponent) noexcept
   {
-    auto r = rotr64(std::uint64_t(significand * UINT64_C(28999941890838049)), 8);
+    auto r = std::rotr(std::uint64_t(significand * UINT64_C(28999941890838049)), 8);
     auto b = r < UINT64_C(184467440738);
     auto s = int(b);
     significand = b ? r : significand;
 
-    r = rotr64(std::uint64_t(significand * UINT64_C(182622766329724561)), 4);
+    r = std::rotr(std::uint64_t(significand * UINT64_C(182622766329724561)), 4);
     b = r < UINT64_C(1844674407370956);
     s = s * 2 + b;
     significand = b ? r : significand;
 
-    r = rotr64(std::uint64_t(significand * UINT64_C(10330176681277348905)), 2);
+    r = std::rotr(std::uint64_t(significand * UINT64_C(10330176681277348905)), 2);
     b = r < UINT64_C(184467440737095517);
     s = s * 2 + b;
     significand = b ? r : significand;
 
-    r = rotr64(std::uint64_t(significand * UINT64_C(14757395258967641293)), 1);
+    r = std::rotr(std::uint64_t(significand * UINT64_C(14757395258967641293)), 1);
     b = r < UINT64_C(1844674407370955162);
     s = s * 2 + b;
     significand = b ? r : significand;
@@ -234,7 +212,7 @@ constexpr decimal_fp<typename ieee754<Float>::carrier_uint> to_decimal(Float x) 
   constexpr carrier_uint small_divisor = compute_power(carrier_uint(10), kappa);
 
   constexpr int left_endpoint_upper_threshold =
-      2 + floor_log2(compute_power(std::uint64_t(10), count_factors((carrier_uint(1) << (significand_bits + 2)) - 1, 5) + 1) / 3);
+      2 + (int(std::bit_width(compute_power(std::uint64_t(10), count_factors((carrier_uint(1) << (significand_bits + 2)) - 1, 5) + 1) / 3)) - 1);
   constexpr int shorter_interval_tie_lower_threshold = -floor_log5_pow2_minus_log5_3(significand_bits + 4) - 2 - significand_bits;
   constexpr int shorter_interval_tie_upper_threshold = -floor_log5_pow2(significand_bits + 2) - 2 - significand_bits;
 
