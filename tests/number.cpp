@@ -16,6 +16,10 @@
 #include <utility>
 #include <vector>
 
+#if defined(__STDCPP_FLOAT64_T__)
+#include <stdfloat>
+#endif
+
 namespace {
 
 namespace number = yk::json20::detail::number;
@@ -363,4 +367,23 @@ TEST_CASE("infinity and NaN are rejected", "[number]")
   CHECK_THROWS_AS(json(std::numeric_limits<long double>::infinity()), std::invalid_argument);
   CHECK_THROWS_AS(json(-std::numeric_limits<long double>::infinity()), std::invalid_argument);
   CHECK_THROWS_AS(json(std::numeric_limits<long double>::quiet_NaN()), std::invalid_argument);
+}
+
+TEST_CASE("which floating-point types json20 converts itself", "[number]")
+{
+  // IEEE 754 binary32 and binary64, as float and double are on every
+  // platform CI covers: every character type, constant evaluation
+  static_assert(number::self_converted<float>);
+  static_assert(number::self_converted<double>);
+
+  // anything else goes through std::from_chars / std::to_chars, char only
+  static_assert(!number::self_converted<long double>);
+#if defined(__STDCPP_FLOAT64_T__)
+  // IEEE binary64, but not double: the same std path as a non-IEEE double
+  static_assert(!number::self_converted<std::float64_t>);
+  using yk::json20::json;
+  CHECK(json(std::float64_t(0.1)).as_string_unchecked() == "0.1");
+  CHECK(yk::json20::json_parser::parse("[2.5e-3]").at(0).as_floating_point<std::float64_t>() == std::float64_t(2.5e-3));
+  CHECK_THROWS_AS(json(std::numeric_limits<std::float64_t>::infinity()), std::invalid_argument);
+#endif
 }
