@@ -1435,7 +1435,8 @@ DOM・パーサが 1 つのファイルに同居していた。作者の方針�
 
 | ファイル | 中身 |
 |---|---|
-| `detail/fixed_string.hpp` | `basic_fixed_string`、`select_str`、`YK_JSON20_WIDEN_STRING` |
+| `detail/fixed_string.hpp` | `basic_fixed_string` |
+| `detail/select_str.hpp` | `select_str`、`YK_JSON20_WIDEN_STRING` |
 | `detail/number/u128.hpp` | 128 ビットの演算 |
 | `detail/number/pow5.hpp` | 圧縮した 5 の累乗の表（A 方式）と、そこから各ライブラリの表を導く関数 |
 | `detail/number/ieee754.hpp` | IEEE 754 の形式の定数、`ieee754_binary`、`self_converted` |
