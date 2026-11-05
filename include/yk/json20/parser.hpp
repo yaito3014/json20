@@ -427,14 +427,8 @@ private:
   {
     auto const parser =
         seq(ws,
-            alt(
-                bind_visitor(parse_null<Visitor>, vis),
-                bind_visitor(parse_boolean<Visitor>, vis),
-                bind_visitor(parse_number<Visitor>, vis),
-                bind_visitor(parse_string<Visitor>, vis),
-                bind_visitor(parse_array<Visitor>, vis),
-                bind_visitor(parse_object<Visitor>, vis)
-            ),
+            alt(bind_visitor(parse_null<Visitor>, vis), bind_visitor(parse_boolean<Visitor>, vis), bind_visitor(parse_number<Visitor>, vis),
+                bind_visitor(parse_string<Visitor>, vis), bind_visitor(parse_array<Visitor>, vis), bind_visitor(parse_object<Visitor>, vis)),
             ws);
 
     auto res = parser(str);

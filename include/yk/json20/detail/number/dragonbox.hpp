@@ -244,8 +244,7 @@ constexpr decimal_fp<typename ieee754<Float>::carrier_uint> to_decimal(Float x) 
       }
 
       decimal_significand = fmt::compute_round_up_for_shorter_interval_case(cache, beta);
-      if (decimal_significand % 2 != 0 && binary_exponent >= shorter_interval_tie_lower_threshold &&
-          binary_exponent <= shorter_interval_tie_upper_threshold) {
+      if (decimal_significand % 2 != 0 && binary_exponent >= shorter_interval_tie_lower_threshold && binary_exponent <= shorter_interval_tie_upper_threshold) {
         --decimal_significand;
       } else if (decimal_significand < xi) {
         ++decimal_significand;
