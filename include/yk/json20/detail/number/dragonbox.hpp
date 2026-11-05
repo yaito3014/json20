@@ -1,5 +1,5 @@
-#ifndef YK_JSON20_DETAIL_NUMBER_DRAGONBOX_HPP
-#define YK_JSON20_DETAIL_NUMBER_DRAGONBOX_HPP
+#ifndef YK_ZZ_JSON20_DETAIL_NUMBER_DRAGONBOX_HPP
+#define YK_ZZ_JSON20_DETAIL_NUMBER_DRAGONBOX_HPP
 
 #include <yk/json20/detail/number/ieee754.hpp>
 #include <yk/json20/detail/number/pow5.hpp>
@@ -324,4 +324,4 @@ constexpr decimal_fp<typename ieee754<Float>::carrier_uint> to_decimal(Float x) 
 
 }  // namespace yk
 
-#endif  // YK_JSON20_DETAIL_NUMBER_DRAGONBOX_HPP
+#endif  // YK_ZZ_JSON20_DETAIL_NUMBER_DRAGONBOX_HPP

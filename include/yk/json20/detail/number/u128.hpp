@@ -1,5 +1,5 @@
-#ifndef YK_JSON20_DETAIL_NUMBER_U128_HPP
-#define YK_JSON20_DETAIL_NUMBER_U128_HPP
+#ifndef YK_ZZ_JSON20_DETAIL_NUMBER_U128_HPP
+#define YK_ZZ_JSON20_DETAIL_NUMBER_U128_HPP
 
 #include <cstdint>
 
@@ -43,4 +43,4 @@ constexpr u128 umul128(std::uint64_t a, std::uint64_t b) noexcept
 
 }  // namespace yk
 
-#endif  // YK_JSON20_DETAIL_NUMBER_U128_HPP
+#endif  // YK_ZZ_JSON20_DETAIL_NUMBER_U128_HPP

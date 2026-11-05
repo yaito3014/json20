@@ -1,5 +1,5 @@
-#ifndef YK_JSON20_VISITOR_HPP
-#define YK_JSON20_VISITOR_HPP
+#ifndef YK_ZZ_JSON20_VISITOR_HPP
+#define YK_ZZ_JSON20_VISITOR_HPP
 
 #include <yk/json20/json.hpp>
 
@@ -112,4 +112,4 @@ using u32json_visitor = basic_json_visitor<char32_t>;
 
 }  // namespace yk
 
-#endif  // YK_JSON20_VISITOR_HPP
+#endif  // YK_ZZ_JSON20_VISITOR_HPP

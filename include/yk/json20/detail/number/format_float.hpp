@@ -1,5 +1,5 @@
-#ifndef YK_JSON20_DETAIL_NUMBER_FORMAT_FLOAT_HPP
-#define YK_JSON20_DETAIL_NUMBER_FORMAT_FLOAT_HPP
+#ifndef YK_ZZ_JSON20_DETAIL_NUMBER_FORMAT_FLOAT_HPP
+#define YK_ZZ_JSON20_DETAIL_NUMBER_FORMAT_FLOAT_HPP
 
 #include <yk/json20/detail/fixed_string.hpp>
 #include <yk/json20/detail/number/dragonbox.hpp>
@@ -186,4 +186,4 @@ constexpr std::basic_string<charT> format_float(Float x)
 
 }  // namespace yk
 
-#endif  // YK_JSON20_DETAIL_NUMBER_FORMAT_FLOAT_HPP
+#endif  // YK_ZZ_JSON20_DETAIL_NUMBER_FORMAT_FLOAT_HPP

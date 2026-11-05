@@ -1,5 +1,5 @@
-#ifndef YK_JSON20_JSON_HPP
-#define YK_JSON20_JSON_HPP
+#ifndef YK_ZZ_JSON20_JSON_HPP
+#define YK_ZZ_JSON20_JSON_HPP
 
 #include <yk/json20/conversion.hpp>
 #include <yk/json20/detail/fixed_string.hpp>
@@ -455,4 +455,4 @@ using u32json = basic_json<char32_t>;
 
 }  // namespace yk
 
-#endif  // YK_JSON20_JSON_HPP
+#endif  // YK_ZZ_JSON20_JSON_HPP

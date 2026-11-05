@@ -1,5 +1,5 @@
-#ifndef YK_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP
-#define YK_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP
+#ifndef YK_ZZ_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP
+#define YK_ZZ_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP
 
 #include <yk/json20/detail/fixed_string.hpp>
 #include <yk/json20/detail/number/ieee754.hpp>
@@ -335,4 +335,4 @@ constexpr std::pair<Float, std::size_t> parse_float(std::basic_string_view<charT
 
 }  // namespace yk
 
-#endif  // YK_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP
+#endif  // YK_ZZ_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP

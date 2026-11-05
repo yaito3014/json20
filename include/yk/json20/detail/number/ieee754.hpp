@@ -1,5 +1,5 @@
-#ifndef YK_JSON20_DETAIL_NUMBER_IEEE754_HPP
-#define YK_JSON20_DETAIL_NUMBER_IEEE754_HPP
+#ifndef YK_ZZ_JSON20_DETAIL_NUMBER_IEEE754_HPP
+#define YK_ZZ_JSON20_DETAIL_NUMBER_IEEE754_HPP
 
 #include <charconv>
 #include <concepts>
@@ -87,4 +87,4 @@ struct adjusted_mantissa {
 
 }  // namespace yk
 
-#endif  // YK_JSON20_DETAIL_NUMBER_IEEE754_HPP
+#endif  // YK_ZZ_JSON20_DETAIL_NUMBER_IEEE754_HPP

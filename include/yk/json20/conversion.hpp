@@ -1,5 +1,5 @@
-#ifndef YK_JSON20_CONVERSION_HPP
-#define YK_JSON20_CONVERSION_HPP
+#ifndef YK_ZZ_JSON20_CONVERSION_HPP
+#define YK_ZZ_JSON20_CONVERSION_HPP
 
 #include <yk/json20/detail/fixed_string.hpp>
 #include <yk/json20/detail/number/format_float.hpp>
@@ -203,4 +203,4 @@ struct serializer<T, char> {
 
 }  // namespace yk
 
-#endif  // YK_JSON20_CONVERSION_HPP
+#endif  // YK_ZZ_JSON20_CONVERSION_HPP

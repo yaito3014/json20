@@ -1,5 +1,5 @@
-#ifndef YK_JSON20_DETAIL_NUMBER_POW5_HPP
-#define YK_JSON20_DETAIL_NUMBER_POW5_HPP
+#ifndef YK_ZZ_JSON20_DETAIL_NUMBER_POW5_HPP
+#define YK_ZZ_JSON20_DETAIL_NUMBER_POW5_HPP
 
 #include <yk/json20/detail/number/u128.hpp>
 
@@ -127,4 +127,4 @@ struct pow5 {
 
 }  // namespace yk
 
-#endif  // YK_JSON20_DETAIL_NUMBER_POW5_HPP
+#endif  // YK_ZZ_JSON20_DETAIL_NUMBER_POW5_HPP

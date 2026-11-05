@@ -1,5 +1,5 @@
-#ifndef YK_JSON20_CHECKED_STRING_HPP
-#define YK_JSON20_CHECKED_STRING_HPP
+#ifndef YK_ZZ_JSON20_CHECKED_STRING_HPP
+#define YK_ZZ_JSON20_CHECKED_STRING_HPP
 
 #include <yk/json20/parser.hpp>
 
@@ -58,4 +58,4 @@ using u32checked_string = basic_checked_string<char32_t>;
 
 }  // namespace yk
 
-#endif  // YK_JSON20_CHECKED_STRING_HPP
+#endif  // YK_ZZ_JSON20_CHECKED_STRING_HPP

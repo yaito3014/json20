@@ -1,5 +1,5 @@
-#ifndef YK_JSON20_PARSER_HPP
-#define YK_JSON20_PARSER_HPP
+#ifndef YK_ZZ_JSON20_PARSER_HPP
+#define YK_ZZ_JSON20_PARSER_HPP
 
 #include <yk/json20/detail/fixed_string.hpp>
 #include <yk/json20/json.hpp>
@@ -543,4 +543,4 @@ using u32json_parser = basic_json_parser<char32_t>;
 
 }  // namespace yk
 
-#endif  // YK_JSON20_PARSER_HPP
+#endif  // YK_ZZ_JSON20_PARSER_HPP

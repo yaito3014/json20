@@ -1,5 +1,5 @@
-#ifndef YK_JSON20_DETAIL_FIXED_STRING_HPP
-#define YK_JSON20_DETAIL_FIXED_STRING_HPP
+#ifndef YK_ZZ_JSON20_DETAIL_FIXED_STRING_HPP
+#define YK_ZZ_JSON20_DETAIL_FIXED_STRING_HPP
 
 #include <algorithm>
 #include <array>
@@ -72,4 +72,4 @@ struct select_str<char32_t, Str, WStr, U8Str, U16Str, U32Str> {
 
 }  // namespace yk
 
-#endif  // YK_JSON20_DETAIL_FIXED_STRING_HPP
+#endif  // YK_ZZ_JSON20_DETAIL_FIXED_STRING_HPP
