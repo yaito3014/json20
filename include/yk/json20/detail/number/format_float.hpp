@@ -5,10 +5,9 @@
 #include <yk/json20/detail/number/ieee754.hpp>
 #include <yk/json20/detail/select_str.hpp>
 
+#include <array>
 #include <bit>
 #include <charconv>
-// std::begin / std::end come from <string>: <iterator> does not compile in
-// C++26 mode with libstdc++ 14 under an EBCDIC execution character set
 #include <string>
 #include <type_traits>
 
@@ -101,9 +100,10 @@ constexpr std::basic_string<charT> format_float(Float x)
 
   // no trailing zeros: Dragonbox's to_decimal removes them
   auto const [significand, exponent] = dragonbox::to_decimal(x);
-  charT digit_buf[20]{};
-  charT const* const digits = write_digits(std::end(digit_buf), significand);
-  int const n = int(std::end(digit_buf) - digits);
+  std::array<charT, 20> digit_buf{};
+  charT* const digits_end = digit_buf.data() + digit_buf.size();
+  charT const* const digits = write_digits(digits_end, significand);
+  int const n = int(digits_end - digits);
 
   int const scientific_exponent = exponent + n - 1;
   int const abs_exponent = scientific_exponent < 0 ? -scientific_exponent : scientific_exponent;
