@@ -9,7 +9,7 @@ Zenn 記事「設計判断の記録」の一次資料を兼ねる。
 - バグ修正はまず再現テストを書き、失敗を確認してから修正する
 - コンパイラ別の挙動差・エラーは日付付きで記録する
 
-## 検証環境（2026-09-15 時点）
+## 検証環境(2026-09-15 時点)
 
 - GCC 14.2.0 (Ubuntu 24.04, libstdc++ 14)
 - Clang 18.1.3 (Ubuntu 24.04)
@@ -17,7 +17,7 @@ Zenn 記事「設計判断の記録」の一次資料を兼ねる。
 
 ---
 
-## 2026-09-15: libstdc++ 14 は `{:?}`（P2286 formatted escaping）未実装
+## 2026-09-15 libstdc++ 14 は `{:?}`(P2286 formatted escaping)未実装
 
 `tests/main.cpp` のデバッグビジターが `std::println("{:?}", str)` を使っていたが、
 GCC 14.2 の libstdc++ では `std::formatter<string_view>` が `?` 指定を受理せず
@@ -30,30 +30,30 @@ error: call to consteval function 'std::basic_format_string<...>("on_null: {:?}"
        'void std::__format::__failed_to_parse_format_spec()'
 ```
 
-- 採用: `{}` に落とす（デバッグ出力なのでエスケープ表示は必須ではない）
-- 却下: `__cpp_lib_format` での条件分岐 — テストの見通しが悪くなるわりに得るものが小さい
-- 備考: GCC 13 はそもそも `<print>` 自体がない（libstdc++ に入ったのは GCC 14 から）。
+- 採用: `{}` に落とす(デバッグ出力なのでエスケープ表示は必須ではない)
+- 却下: `__cpp_lib_format` での条件分岐。テストの見通しが悪くなるわりに得るものが小さい
+- 備考: GCC 13 はそもそも `<print>` 自体がない(libstdc++ に入ったのは GCC 14 から)。
   テストは `cxx_std_23` を要求しているため、実質 GCC 14+ / 対応 Clang が必要
 
-## 2026-09-15: バグ修正 — `erase(key)` の条件が逆
+## 2026-09-15 バグ修正: `erase(key)` の条件が逆
 
-症状（再現テストで確認、GCC 14.2）:
+症状(再現テストで確認、GCC 14.2):
 
-- `erase("foo")`（存在するキー）→ 何もしない（発見時に `return` していた）
-- `erase("baz")`（存在しないキー）→ `lower_bound` の位置をそのまま `vec.erase(iter)` に渡すため、
-  **隣のキーを誤削除**する（`{"bar", "foo"}` に対して `erase("baz")` は `"foo"` を消す）。
+- `erase("foo")`(存在するキー)→ 何もしない(発見時に `return` していた)
+- `erase("baz")`(存在しないキー)→ `lower_bound` の位置をそのまま `vec.erase(iter)` に渡すため、
+  **隣のキーを誤削除**する(`{"bar", "foo"}` に対して `erase("baz")` は `"foo"` を消す)。
   キーが末尾より後ろに整列される場合は `erase(end())` で UB
 - 既存テストは削除後に残存キーを読むだけで「消えたこと」を検証していなかったため発覚せず。
   再現テストでは `erase("baz")` 後のサイズ検査が誤削除のせいで「偶然」通る、という
-  二重の見逃しも観測した（テストは失敗の仕方まで見ないと信用できない、の実例）
+  二重の見逃しも観測した(テストは失敗の仕方まで見ないと信用できない、の実例)
 
-修正: 条件を正しい向き（未発見なら `return`、発見時に `erase`）に。あわせて
+修正: 条件を正しい向き(未発見なら `return`、発見時に `erase`)に。あわせて
 
-- 戻り値を `void` → `bool`（削除したか）に変更。`insert` / `emplace` が `bool` を返すのと対称。
+- 戻り値を `void` → `bool`(削除したか)に変更。`insert` / `emplace` が `bool` を返すのと対称。
   `std::map::erase(key)` の `size_type` は要素数が高々 1 なので `bool` で十分と判断
-- 意味のない `template<class... Args>` ヘッダを除去（`emplace` からのコピー残骸と推測）
+- 意味のない `template<class... Args>` ヘッダを除去(`emplace` からのコピー残骸と推測)
 
-## 2026-09-15: バグ修正 — serializer のバッファが未終端 + サイズ不足（引き継ぎメモ外の発見）
+## 2026-09-15 バグ修正: serializer のバッファが未終端 + サイズ不足(引き継ぎメモ外の発見)
 
 `try_as_*` の修正テストを書いたら `json(42u)` の `try_as_unsigned_integer<unsigned>() == 42u` が
 **Catch2 の中でだけ**失敗し、単体の main では通る、という現象で発覚。原因は
@@ -68,58 +68,58 @@ return std::string(buf);   // ← ptr を使っていない
 
 1. `std::string(buf)` は null 終端を仮定するが、`to_chars` は終端を書かない。
    `"42"` の直後のスタックゴミが数字だと字句が `"428…"` になり、読み出し時の
-   `from_chars` が別の値を返す。スタックの内容次第なので、呼び出し文脈（Catch2 か
-   単体 main か）で成否が変わる。UB が「たまたま通るテスト」を作る実例
-2. `digits10 + 1` は不足。`digits10` は切り捨て（int64 で 18）なので、
-   `INT64_MIN`（20 文字）や `UINT64_MAX`（20 文字）で `to_chars` が
+   `from_chars` が別の値を返す。スタックの内容次第なので、呼び出し文脈(Catch2 か
+   単体 main か)で成否が変わる。UB が「たまたま通るテスト」を作る実例
+2. `digits10 + 1` は不足。`digits10` は切り捨て(int64 で 18)なので、
+   `INT64_MIN`(20 文字)や `UINT64_MAX`(20 文字)で `to_chars` が
    `value_too_large` → `runtime_error("to_chars error")` を投げる。
    `double` も `numeric_limits<double>::digits10 + 1 = 16` に対し最短表現は
-   最大 24 文字（`-1.7976931348623157e+308`）
+   最大 24 文字(`-1.7976931348623157e+308`)
 
 修正:
 
-- サイズ: 整数は `digits10 + 2`（切り捨て分 + 符号）、浮動小数点は
-  `max_digits10 + 8`（符号 + 小数点 + `e+XXXX`。80bit long double の `e+4932` も収まる）
+- サイズ: 整数は `digits10 + 2`(切り捨て分 + 符号)、浮動小数点は
+  `max_digits10 + 8`(符号 + 小数点 + `e+XXXX`。80bit long double の `e+4932` も収まる)
 - 構築: `std::string(buf, ptr)` で to_chars が書いた範囲だけを使う
 
-字句保持設計（値を文字列で持つ）はシリアライズが唯一の正規化点なので、ここが壊れると
-全アクセサが壊れる。roundtrip テスト（INT64_MIN / UINT64_MAX / double max / 0.1）と
-字句そのものの検査（`as_string_unchecked() == "42"`）を追加した。
+字句保持設計(値を文字列で持つ)はシリアライズが唯一の正規化点なので、ここが壊れると
+全アクセサが壊れる。roundtrip テスト(INT64_MIN / UINT64_MAX / double max / 0.1)と
+字句そのものの検査(`as_string_unchecked() == "42"`)を追加した。
 
-## 2026-09-15: バグ修正 — `try_as_*` がテンプレート実引数なしで `as_*_unchecked()` を呼ぶ
+## 2026-09-15 バグ修正: `try_as_*` がテンプレート実引数なしで `as_*_unchecked()` を呼ぶ
 
 `try_as_unsigned_integer<T>` / `try_as_signed_integer<T>` / `try_as_floating_point<T>` の
 内部が `as_unsigned_integer_unchecked()` のように `<T>` なしで委譲していた。
 戻り値型からはテンプレート引数を推論できないため、インスタンス化した瞬間に
-コンパイルエラー（GCC 14.2: "couldn't deduce template parameter 'T'"）。
+コンパイルエラー(GCC 14.2: "couldn't deduce template parameter 'T'")。
 
 - 既存テストが `try_as_*` を一度も呼んでいなかったため未発覚。
   「テンプレートはインスタンス化されるまでコンパイルされない」の実例
 - 修正は `<T>` を明示するだけ。`try_as_*` 全種を通すテストを追加した
-- この修正テストが serializer バグ（前項）を掘り当てた。テストの網を広げると
+- この修正テストが serializer バグ(前項)を掘り当てた。テストの網を広げると
   隣のバグが引っかかる、という点も記事メモとして残す
 
-## 2026-09-15: バグ修正 — `cntrl` の表で `\x00` が重複し `\x10` が欠落
+## 2026-09-15 バグ修正: `cntrl` の表で `\x00` が重複し `\x10` が欠落
 
-制御文字（U+0000〜U+001F）を列挙する `alt(lit("\x00"), lit("\x01"), …)` の 32 行の中で、
-17 番目にあるべき `"\x10"` が `"\x00"` になっていた（コピペ時の打ち間違いと推測）。
+制御文字(U+0000〜U+001F)を列挙する `alt(lit("\x00"), lit("\x01"), …)` の 32 行の中で、
+17 番目にあるべき `"\x10"` が `"\x00"` になっていた(コピペ時の打ち間違いと推測)。
 結果、文字列中の生の DLE (0x10) だけがすり抜けて受理されていた。
 
 - 再現テストは 0x00〜0x1F を全部ループで拒否確認する形にした。
   32 個の手書き列挙は「1 個の typo が視認できない」ことが今回の原因なので、
   テスト側は列挙をループに置き換えて網羅を機械化
 - 修正はデータ修正のみ。パーサ側の設計課題として「1 文字 alt の 32 連鎖」は
-  コンパイル時間・可読性の両面で筋が悪く、範囲判定（`c <= 0x1F`）を行う
-  述語パーサを導入する余地がある（今回はスコープ外、将来の判断として記録）
-  → 後日却下（次項）
+  コンパイル時間・可読性の両面で筋が悪く、範囲判定(`c <= 0x1F`)を行う
+  述語パーサを導入する余地がある(今回はスコープ外、将来の判断として記録)
+  → 後日却下(次項)
 
-## 2026-09-15: 設計判断 — `cntrl` の述語パーサ化はしない（作者判断）
+## 2026-09-15 設計判断: `cntrl` の述語パーサ化はしない(作者判断)
 
-前項で「将来の判断」とした範囲述語パーサ（`c <= 0x1F` のような charT の数値比較）は
+前項で「将来の判断」とした範囲述語パーサ(`c <= 0x1F` のような charT の数値比較)は
 **導入しない**ことに決定。理由: C++ は実行文字エンコーディングを規定しておらず、
 その中で文字を数値比較で分類する API は作りたくない、という作者の方針。
 
-正確を期すための整理（記事でもこの順で書く）:
+正確を期すための整理(記事でもこの順で書く):
 
 - 現行の `lit("\x00")`〜`lit("\x1F")` テーブルが述語版より「エンコーディング安全」な
   わけではない。16 進エスケープは文字→コード単位の変換を通らず**コード単位値を直接
@@ -127,46 +127,46 @@ return std::string(buf);   // ← ptr を使っていない
   依存はどちらの形でも存在する
 - したがってこの判断の実質は「依存を消す」ではなく**依存の置き場所の統制**:
   - エンコーディングへのコミットは `YK_JSON20_WIDEN_STRING` で書かれたリテラル表に
-    閉じ込める。パーサコンビネータの語彙は「この正確な列にマッチする」（`lit`）だけで
+    閉じ込める。パーサコンビネータの語彙は「この正確な列にマッチする」(`lit`)だけで
     完結し、charT の数値領域に対する述語という一般化された API を持ち込まない
   - 述語パーサを公開すると、利用側が `std::iscntrl` 的な locale / エンコーディング依存の
     文字分類をコンビネータに書き出す入口になる。その拡張軸は封じておく
 - 標準が保証するのは char8_t/char16_t/char32_t の UTF-8/16/32 のみ。`char` / `wchar_t` の
-  エンコーディングは処理系定義であり、JSON（RFC 8259、Unicode 前提）を非 Unicode の
+  エンコーディングは処理系定義であり、JSON(RFC 8259、Unicode 前提)を非 Unicode の
   実行エンコーディングで扱う場合の正しさは、リテラル表・述語のどちらでも保証できない。
   ここは「リテラル表がコミットの明示的な一覧になっている」ことを担保とする
 - 受け入れるコスト: 32 連鎖 `alt` のコンパイル時間・可読性、および typo リスク。
-  typo は再現テスト（0x00〜0x1F 全域ループ）で機械的に検出できるようになっており、
+  typo は再現テスト(0x00〜0x1F 全域ループ)で機械的に検出できるようになっており、
   これで足りるという判断
 
-## 2026-09-15: バグ修正 + 設計判断 — 偽りの `noexcept` と try_as の失敗セマンティクス
+## 2026-09-15 バグ修正 + 設計判断: 偽りの `noexcept` と try_as の失敗セマンティクス
 
 変換系アクセサ `as_boolean_unchecked` / `as_*_integer_unchecked<T>` /
 `as_floating_point_unchecked<T>` が `noexcept` だったが、内部の
 `deserializer::deserialize` は `from_chars` 失敗時に `std::invalid_argument` を投げる。
-kind が一致していてもオーバーフローは起きる（`json(300u)` を `uint8_t` で読む等）ので、
+kind が一致していてもオーバーフローは起きる(`json(300u)` を `uint8_t` で読む等)ので、
 これは前提条件違反ではなくデータ依存の正常系エラー。実測: `json a(300u);`
-`a.as_unsigned_integer<uint8_t>()` は catch 不能の `std::terminate`（exit 134）になった。
+`a.as_unsigned_integer<uint8_t>()` は catch 不能の `std::terminate`(exit 134)になった。
 
 判断:
 
 - **`unchecked` の意味を「kind 検査を省く」に限定**し、変換失敗は throw で報告する。
-  よって変換系 4 つから `noexcept` を除去（`static_assert(!noexcept(...))` で固定）。
+  よって変換系 4 つから `noexcept` を除去(`static_assert(!noexcept(...))` で固定)。
   却下案: 「unchecked = 全部 UB」路線。オーバーフローは呼び出し側が事前検査しづらく
-  （字句を自前パースするしかない）、UB にする利益が薄い
+  (字句を自前パースするしかない)、UB にする利益が薄い
 - **`try_as_*` は「kind 不一致 or 変換失敗 → nullopt」** に統一し、`noexcept` を維持。
   実装は `try { return as_*_unchecked<T>(); } catch (...) { return nullopt; }`。
   C++20 の constexpr 関数は try ブロックを書けるが、定数評価中に throw に到達したら
-  その時点で非定数式（= コンパイルエラー）になるだけで、従来と挙動差はない
+  その時点で非定数式(= コンパイルエラー)になるだけで、従来と挙動差はない
 - `try_as_boolean` は catch なしのまま。kind == boolean なら字句は必ず
-  `"true"` / `"false"`（serializer とパーサの両方が保証）で、投げる経路が
+  `"true"` / `"false"`(serializer とパーサの両方が保証)で、投げる経路が
   不変条件上存在しないため。ここに catch を書くと「投げうる」という誤った
   シグナルになる
 
 参考: `std::optional` を返す以上、変換失敗の「理由」は潰れる。理由が要る用途は
 throw 版 `as_*` を使う、という住み分け。
 
-## 2026-09-15: 設計判断 — `try_as_string/array/object` と `try_at` は `T const*` を返す
+## 2026-09-15 設計判断: `try_as_string/array/object` と `try_at` は `T const*` を返す
 
 旧: `try_as_array()` が `std::optional<std::vector<basic_json>>` を**値で**返していた。
 kind 不一致の検査をしたいだけで部分木全体の深いコピーが発生する。`try_at` も同様に
@@ -174,64 +174,64 @@ kind 不一致の検査をしたいだけで部分木全体の深いコピーが
 
 検討した選択肢:
 
-1. `std::optional<T>`（現状）— コピーコストが致命的。却下
-2. `std::optional<std::reference_wrapper<T const>>` — コピーは消えるが、
+1. `std::optional<T>`(現状): コピーコストが致命的。却下
+2. `std::optional<std::reference_wrapper<T const>>`: コピーは消えるが、
    呼び出し側が `opt->get().size()` のように `get()` を挟む必要があり書き味が悪い。却下
-3. C++26 `std::optional<T&>` — 意味的には理想だが、C++20 ライブラリなので使えない。見送り
-4. **`T const*`（採用）** — `std::get_if` / `std::any_cast` のポインタ版という
+3. C++26 `std::optional<T&>`: 意味的には理想だが、C++20 ライブラリなので使えない。見送り
+4. **`T const*`(採用)**: `std::get_if` / `std::any_cast` のポインタ版という
    標準ライブラリに前例のある形。「失敗しうる・参照が欲しい」の標準的な回答であり、
    `if (auto* p = j.try_as_array())` のイディオムがそのまま書ける
 
-住み分けの整理（この判断で API 全体の規則ができた）:
+住み分けの整理(この判断で API 全体の規則ができた):
 
-- **計算して返す値**（bool・数値: 字句から `from_chars` で毎回生成）→ `optional<T>` のまま
-- **格納されている値**（string・array・object・要素）→ `T const*`
+- **計算して返す値**(bool・数値: 字句から `from_chars` で毎回生成)→ `optional<T>` のまま
+- **格納されている値**(string・array・object・要素)→ `T const*`
 
 「格納物はポインタ、計算結果は optional」という一貫した規則になり、
 どちらを返すかが実装の都合ではなく意味で決まる。テストでは
 `try_as_array() == &as_array()` で「同じストレージを指す＝コピーなし」を固定した。
 
-備考: 非 const 版（`T*` 返し）は現状 `as_*` 側にも存在しないため追加せず、
+備考: 非 const 版(`T*` 返し)は現状 `as_*` 側にも存在しないため追加せず、
 mutable アクセスの設計はまとめて別判断とする。
 
-## 2026-09-15: 設計判断 — デフォルト構築は null（空 object をやめる）
+## 2026-09-15 設計判断: デフォルト構築は null(空 object をやめる)
 
 旧: `json a;` は空 object だった。決め手は `operator[](std::size_t)` の自動拡張:
 `vec.resize(idx + 1)` はデフォルト値で隙間を埋めるため、`a[3] = 1` とすると
-`a[0..2]` が `{}`（空 object）になっていた。JSON の意味論では未設定要素は null であるべきで
-（JavaScript の sparse array も、nlohmann::json の同じ操作も null で埋める）、
+`a[0..2]` が `{}`(空 object)になっていた。JSON の意味論では未設定要素は null であるべきで
+(JavaScript の sparse array も、nlohmann::json の同じ操作も null で埋める)、
 「デフォルト構築 = 空 object」は resize の埋め値という形で観測可能な嘘になっていた。
 
 検討した選択肢:
 
-1. **null にする（採用）** — JSON の意味論と一致。`resize` の埋め値がそのまま正しくなる。
-   表現は kind = null + 字句 `"null"`（index 0 の文字列スロット）。パーサの
+1. **null にする(採用)**: JSON の意味論と一致。`resize` の埋め値がそのまま正しくなる。
+   表現は kind = null + 字句 `"null"`(index 0 の文字列スロット)。パーサの
    `on_null` が作る表現と完全に同一なので、構築経路による差が生じない
-2. 空 object を維持し `resize` の埋め値だけ null を明示 — 「デフォルトは object だが
+2. 空 object を維持し `resize` の埋め値だけ null を明示: 「デフォルトは object だが
    配列拡張の埋めは null」という二重基準になり、説明が一段複雑になる。却下
-3. nlohmann 流: null のまま `operator[]` を許し object へ暗黙昇格 — 書き味は良いが、
+3. nlohmann 流: null のまま `operator[]` を許し object へ暗黙昇格: 書き味は良いが、
    本ライブラリは「kind 不一致は常に throw」の厳格路線。ここだけ暗黙変換を入れると
    規則が「throw、ただし null は例外」になる。タイプミスした `j["typo"]["x"] = 1` が
-   静かに構造を作ってしまう事故も含めて却下（`operator[]` は null に対しても throw）
+   静かに構造を作ってしまう事故も含めて却下(`operator[]` は null に対しても throw)
 
 随伴する変更:
 
 - `json::object()` / `json::array()` の引数なし静的ファクトリを追加。
   「空 object が欲しい」の受け皿はデフォルト構築ではなくこちら
-  （`json::object({})` でも同じものは作れるが、意図の表明として引数なし版を用意）
+  (`json::object({})` でも同じものは作れるが、意図の表明として引数なし版を用意)
 - `insert("foo", json{})` / `emplace("foo")` の結果は null になる
-  （旧: 空 object）。「値を後で決める」プレースホルダの意味論としても null が自然
-- `json{}` は空 init-list 扱いではなくデフォルト構築（C++ の規則どおり）なので null
+  (旧: 空 object)。「値を後で決める」プレースホルダの意味論としても null が自然
+- `json{}` は空 init-list 扱いではなくデフォルト構築(C++ の規則どおり)なので null
 
 破壊的変更: 旧コードの `json a; a.insert(...)` は `bad_json_access` を投げるようになる。
 移行は `json a = json::object();`。
 
-## 2026-09-15: コンパイラ挙動メモ — clang 18 + libstdc++ 14 は `variant<string, …>` を constexpr 構築できない
+## 2026-09-15 コンパイラ挙動メモ: clang 18 + libstdc++ 14 は `variant<string, …>` を constexpr 構築できない
 
 `static_assert(json{}.get_kind() == json_value_kind::null)` が GCC 14.2 では通るのに
-clang 18.1.3（libstdc++ 14 ヘッダ使用）では
+clang 18.1.3(libstdc++ 14 ヘッダ使用)では
 "placement new would change type of storage from `__aligned_membuf<basic_string>` to
-`basic_string`" として非定数式扱いになる。json20 とは無関係の最小再現（10 行）:
+`basic_string`" として非定数式扱いになる。json20 とは無関係の最小再現(10 行):
 
 ```cpp
 #include <variant>
@@ -245,34 +245,34 @@ static_assert((V{}, true));  // GCC 14: OK / clang 18 + libstdc++ 14: エラー
   受理するが clang のフロントエンドは定数式と認めない、という処理系間の相互運用問題
 - ランタイム動作は clang でも全テスト相当の確認で問題なし。影響は
   「`basic_json` を含む値を定数式で作る」場合のみ
-  → **2026-10-15 訂正: 誤り。パーサ本体と `checked_string` も影響を受ける（後述の訂正エントリ）**
-- 「constexpr パースの到達点」（メモの未解決問題）に直結する制約: `basic_json` の
+  → **2026-10-15 訂正: 誤り。パーサ本体と `checked_string` も影響を受ける(後述の訂正エントリ)**
+- 「constexpr パースの到達点」(メモの未解決問題)に直結する制約: `basic_json` の
   定数式構築は GCC でしか担保できていない。clang 19/20 や libc++ での再確認は TODO
 
-## 2026-09-15: 設計判断 — `kind_` の別持ちは維持し、kind と storage の対を作れる場所を一元化
+## 2026-09-15 設計判断: `kind_` の別持ちは維持し、kind と storage の対を作れる場所を一元化
 
 出発点は「理想的には variant のタグ型に enum を指定したいが、できないので `kind_` を
 別で持っている」という問題意識。整理すると、`kind_` は variant タグの**複製ではない**:
 
-- kind は 8 値（null / boolean / string / 数値 3 種 / array / object）、storage は 3 択
-  （字句 `basic_string` / array / object）で、スカラー 6 種が index 0 を共有する
-- つまり kind → index は**多対一の純関数**。字句保持設計（型を決めず文字列で持ち、
-  アクセス時に変換する）の帰結であり、null を字句 `"null"` で持つ以上、
+- kind は 8 値(null / boolean / string / 数値 3 種 / array / object)、storage は 3 択
+  (字句 `basic_string` / array / object)で、スカラー 6 種が index 0 を共有する
+- つまり kind → index は**多対一の純関数**。字句保持設計(型を決めず文字列で持ち、
+  アクセス時に変換する)の帰結であり、null を字句 `"null"` で持つ以上、
   内容から kind を再導出することもできない。`kind_` はどの設計でも消えない
 
 検討した選択肢:
 
-1. **8 択 variant（index == kind）** — `null_t{string}`, `boolean_t{string}`, … と
+1. **8 択 variant(index == kind)**: `null_t{string}`, `boolean_t{string}`, … と
    ラッパー型を 6 つ作れば不変条件は構造的に消えるが、現在 `std::get<0>(data_)` 一発の
-   字句アクセス（`as_*_unchecked`、deserialize、visitor）が全部 6 分岐 visit になる。
+   字句アクセス(`as_*_unchecked`、deserialize、visitor)が全部 6 分岐 visit になる。
    静的に分かっていることに毎回 visit を払うことになり却下
-2. **自前 tagged union（タグが本当に enum）** — 「理想」の直接実装だが、C++20 の
+2. **自前 tagged union(タグが本当に enum)**: 「理想」の直接実装だが、C++20 の
    constexpr union は `std::construct_at` 込みの機械が必要で、variant の例外安全も
-   自前になる。clang + libstdc++ の constexpr variant 問題（前項）をこれで回避できる
+   自前になる。clang + libstdc++ の constexpr variant 問題(前項)をこれで回避できる
    可能性はあるが、それは constexpr 到達点を攻める際の別判断として保留
-3. **別持ちは維持し、対を作れる場所を一元化（採用）** — 真の問題は二重持ちではなく、
+3. **別持ちは維持し、対を作れる場所を一元化(採用)**: 真の問題は二重持ちではなく、
    旧 `private_construct` コンストラクタが `(kind, in_place_index)` を**別々に**受け、
-   呼び出し側（visitor 含む）が誤った組を渡せたこと
+   呼び出し側(visitor 含む)が誤った組を渡せたこと
 
 実装:
 
@@ -281,110 +281,110 @@ static_assert((V{}, true));  // GCC 14: OK / clang 18 + libstdc++ 14: エラー
   `emplace_kind<K>(args...)`: kind をテンプレート引数で受け、index は写像から導出。
   **呼び出し側は kind しか指定できず、不一致は構文的に書けない**
 - 公開コンストラクタは全て `kind_construct_t<K>` へ委譲、代入は `emplace_kind<K>`、
-  visitor は `make<K>` を使用。`private_construct`（kind と index を自由に組めた唯一の穴、
-  しかも public に置かれていた）は削除
+  visitor は `make<K>` を使用。`private_construct`(kind と index を自由に組めた唯一の穴、
+  しかも public に置かれていた)は削除
 - `emplace_kind` は storage を先に emplace してから `kind_ = K`。emplace が throw した
-  場合に旧 kind が残る（variant が valueless になる可能性はあるが、kind の更新だけ
-  先行して不一致を作るよりよい）
+  場合に旧 kind が残る(variant が valueless になる可能性はあるが、kind の更新だけ
+  先行して不一致を作るよりよい)
 
 記事の観点: 「タグの複製に見えるものが実は semantic kind と storage representation の
 分離だった。直すべきは複製ではなく、対を組む自由だった」。enum をタグにできる variant が
 欲しいという要求は、`tagged_variant<Enum, Mapping>` として汎用化もできるが、
-使用箇所が 1 つしかない段階での抽象化は見送った（YAGNI）。
+使用箇所が 1 つしかない段階での抽象化は見送った(YAGNI)。
 
 
 
-## 2026-09-15: 設計判断 — EBCDIC の JSON もサポート対象とし、制御文字は UCN で綴る
+## 2026-09-15 設計判断: EBCDIC の JSON もサポート対象とし、制御文字は UCN で綴る
 
 方針決定: 本ライブラリは実行文字エンコーディングを ASCII 系と仮定せず、
 **EBCDIC 実行環境の JSON も対象とする**。前提となる言語仕様の整理:
 
 - 数値エスケープ `\xNN` は「コード単位値 NN をそのまま埋める」。**翻訳を通らない**
 - UCN `\uNNNN` は「Unicode コード点 U+NNNN をそのリテラルのエンコーディングに
-  **翻訳して**埋める」。表現不能なら ill-formed（静かな誤マッチではなくコンパイルエラー）。
-  文字列リテラル内なら制御文字の UCN は C++11 から合法（ill-formed 規則はリテラル外のみ）
-- 単純エスケープ `'\n'` は「処理系の改行文字」であり、JSON の `\n`（U+000A 固定）とは
+  **翻訳して**埋める」。表現不能なら ill-formed(静かな誤マッチではなくコンパイルエラー)。
+  文字列リテラル内なら制御文字の UCN は C++11 から合法(ill-formed 規則はリテラル外のみ)
+- 単純エスケープ `'\n'` は「処理系の改行文字」であり、JSON の `\n`(U+000A 固定)とは
   意味が違う。z/OS XL C では `'\n'` が NL (0x15 = U+0085) である伝統がある
 
-実測（GCC 14.2、`-fexec-charset=IBM1047`）:
+実測(GCC 14.2、`-fexec-charset=IBM1047`):
 
 | リテラル | 既定 (UTF-8) | IBM1047 | 意味 |
 |---|---|---|---|
 | `'A'` | 0x41 | 0xC1 | 翻訳される |
-| `"\u000A"` | 0x0A | 0x25 | 翻訳される（U+000A の EBCDIC 位置） |
+| `"\u000A"` | 0x0A | 0x25 | 翻訳される(U+000A の EBCDIC 位置) |
 | `"\x0A"` | 0x0A | 0x0A | 翻訳を通らない |
-| `'\n'` | 0x0A | 0x25 | GCC は U+000A 扱いで翻訳（ただし規格保証なし） |
+| `'\n'` | 0x0A | 0x25 | GCC は U+000A 扱いで翻訳(ただし規格保証なし) |
 
 - GCC は単純エスケープも UCN と同値に翻訳したが、これは処理系の選択。
   規格に依拠できるのは UCN のみ
-- clang 18 は `-fexec-charset=IBM1047` を受理しない（UTF-8 のみ）。
-  この検証は GCC でしかできない（コンパイラ差の一次情報）
+- clang 18 は `-fexec-charset=IBM1047` を受理しない(UTF-8 のみ)。
+  この検証は GCC でしかできない(コンパイラ差の一次情報)
 
-採用した綴りの規則（文法表のコーディング規約として固定）:
+採用した綴りの規則(文法表のコーディング規約として固定):
 
-1. 印字可能な基本文字（`{` `"` 数字 `null` 等）: そのまま書く（コンパイラが翻訳）
-2. JSON が意味づける制御文字（cntrl 表・ws・エスケープデコーダの出力）: **UCN のみ**。
-   `\x`（翻訳を通らない）も単純エスケープ（意味が処理系依存）も使わない
-3. `\x` は「生のコード単位を意図的に埋める」用途（テストでの生バイト注入）に限定
+1. 印字可能な基本文字(`{` `"` 数字 `null` 等): そのまま書く(コンパイラが翻訳)
+2. JSON が意味づける制御文字(cntrl 表・ws・エスケープデコーダの出力): **UCN のみ**。
+   `\x`(翻訳を通らない)も単純エスケープ(意味が処理系依存)も使わない
+3. `\x` は「生のコード単位を意図的に埋める」用途(テストでの生バイト注入)に限定
 
 これにより文法表全体が「Unicode コード点を意味し、エンコーディングへの写像は
-コンパイラが所有する」で統一された（従来は printable が翻訳あり・cntrl だけ生指定の混在）。
+コンパイラが所有する」で統一された(従来は printable が翻訳あり・cntrl だけ生指定の混在)。
 
-検証（tests/ebcdic.cpp、`-fexec-charset=IBM1047` が使える環境でのみ CMake が有効化。
-全部 static_assert なのでコンパイル成功がテスト）:
+検証(tests/ebcdic.cpp、`-fexec-charset=IBM1047` が使える環境でのみ CMake が有効化。
+全部 static_assert なのでコンパイル成功がテスト):
 
 - EBCDIC エンコードされた JSON が**定数式のまま**パースできる
-- JSON の `\n` エスケープは 0x25（EBCDIC LF = U+000A）にデコードされる（0x15 ではなく）
-- 文字列中の生バイト 0x25（この符号化では U+000A）は拒否される
-- 生バイト 0x15（U+0085 NEL、JSON では非エスケープで合法）は受理される。
-  この非対称は `c <= 0x1F` の数値述語では原理的に書けない — 述語パーサ却下（前項）が
+- JSON の `\n` エスケープは 0x25(EBCDIC LF = U+000A)にデコードされる(0x15 ではなく)
+- 文字列中の生バイト 0x25(この符号化では U+000A)は拒否される
+- 生バイト 0x15(U+0085 NEL、JSON では非エスケープで合法)は受理される。
+  この非対称は `c <= 0x1F` の数値述語では原理的に書けない。述語パーサ却下(前項)が
   「好みの問題」ではなく EBCDIC サポートの必要条件だったことの裏付け
 
-主張できる範囲と限界（正直に）:
+主張できる範囲と限界(正直に):
 
 - 保証するのはソースレベルの性質「ライブラリ自身は ASCII を仮定しない。リテラル翻訳は
   コンパイラに、数値変換は処理系の from_chars / to_chars に委譲する」まで
 - `-fexec-charset` は TU 単位のシミュレーションであり、混成ツールチェーン
-  （EBCDIC リテラル + ASCII ビルドの libc）では数値変換（from_chars の数字判定）が
+  (EBCDIC リテラル + ASCII ビルドの libc)では数値変換(from_chars の数字判定)が
   ずれる可能性がある。真の EBCDIC サポートは自己一貫した EBCDIC ツールチェーン
-  （z/OS 等）上で成立する。パース（字句解析）だけなら from_chars 不要なので
+  (z/OS 等)上で成立する。パース(字句解析)だけなら from_chars 不要なので
   今回の検証範囲で完結している
-- wchar_t 経路（`-fwide-exec-charset`）は未検証
+- wchar_t 経路(`-fwide-exec-charset`)は未検証
 
-## 2026-10-15: バグ修正 — 数値文法が RFC 8259 に違反（`1.` / `1e` / `1e+` を受理）
+## 2026-10-15 バグ修正: 数値文法が RFC 8259 に違反(`1.` / `1e` / `1e+` を受理)
 
 RFC 8259 の数値文法は `frac = decimal-point 1*DIGIT`、`exp = e [ minus / plus ] 1*DIGIT` だが、
-実装は小数部・指数部の数字列を `many(parse0to9)`（**0 回以上**）で書いていたため、
+実装は小数部・指数部の数字列を `many(parse0to9)`(**0 回以上**)で書いていたため、
 数字のない `1.` / `1.e5` / `1e` / `1e+` / `1e-` / `1.5e` を受理していた。
-配列やオブジェクトの中（`[1.]`、`{"a":1e}`）でも同じ。
+配列やオブジェクトの中(`[1.]`、`{"a":1e}`)でも同じ。
 
 影響が大きい理由: `checked_string` の存在意義は「不正な JSON リテラルをコンパイル時に弾く」ことなので、
 この違反は不正な JSON にコンパイル時のお墨付きを与えていたことになる。
 さらに、受理された `"1."` は浮動小数点 kind として格納され、後で `from_chars` に渡される。
 不正な字句がライブラリ内部へ入り込んでいた。
 
-再現テスト（tests/parse.cpp）は `checked_string` と同じ経路（no-op ビジターでの定数評価）を
+再現テスト(tests/parse.cpp)は `checked_string` と同じ経路(no-op ビジターでの定数評価)を
 `static_assert` で検査する形にした。上の 8 ケースすべてで失敗することを確認してから修正した。
-既に正しく拒否できていた入力（`-` / `.5` / `01` / `+1`）と、受理すべき境界ケース
-（`-0`、`1e-05`、`-0.0e-0` など）も同じテストで固定している。
+既に正しく拒否できていた入力(`-` / `.5` / `01` / `+1`)と、受理すべき境界ケース
+(`-0`、`1e-05`、`-0.0e-0` など)も同じテストで固定している。
 
-修正: `parse_digits = seq(parse0to9, many(parse0to9))`（1 回以上）を局所的に定義し、
+修正: `parse_digits = seq(parse0to9, many(parse0to9))`(1 回以上)を局所的に定義し、
 小数部と指数部の両方で使う。整数部の既存の書き方 `seq(parse1to9, many(parse0to9))` と同じ形。
 
 - 却下: 汎用の `many1` / `some` コンビネータを追加する案。今のところ使用箇所は 2 つだけで、
   どちらも既存の `seq` + `many` で書ける。コンビネータの語彙は必要になってから増やす
-  （述語パーサ却下と同じく、語彙を小さく保つ方針）
-- ついでの修正: 数値パーサの失敗時の戻り値が `{nullopt, res2.rest}`（`-` を消費した後の位置）だった。
+  (述語パーサ却下と同じく、語彙を小さく保つ方針)
+- ついでの修正: 数値パーサの失敗時の戻り値が `{nullopt, res2.rest}`(`-` を消費した後の位置)だった。
   他のパーサはすべて失敗時に入力位置を変えない `{nullopt, str}` を返す。呼び出し側の `alt` は
   失敗時の `rest` を見ないため、現状では観測できない。それでも、コンビネータ間の約束
-  （失敗したら何も消費しない）に揃えた
+  (失敗したら何も消費しない)に揃えた
 
-## 2026-10-15: 訂正 — clang 18 + libstdc++ 14 では `checked_string` 自体が機能しない（main 時点から）
+## 2026-10-15 訂正: clang 18 + libstdc++ 14 では `checked_string` 自体が機能しない(main 時点から)
 
 2026-09-15 のノートで「clang の constexpr variant 問題の影響は `basic_json` を定数式で作る場合のみ」と
 書いたのは誤りだった。数値文法修正の再現テストを clang 18 でもコンパイルして発覚した。
 
-正しい条件（json20 に依存しない最小再現で確認）:
+正しい条件(json20 に依存しない最小再現で確認):
 
 ```cpp
 using T = std::tuple<std::string_view, std::vector<std::string_view>>;
@@ -396,9 +396,9 @@ constexpr bool f() {
 static_assert(f());  // GCC 14: OK / clang 18 + libstdc++ 14: 非定数式
 ```
 
-- libstdc++ の `variant` は、**トリビアルに破棄できない選択肢**（`vector` を含む `tuple` など）を
+- libstdc++ の `variant` は、**トリビアルに破棄できない選択肢**(`vector` を含む `tuple` など)を
   `__aligned_membuf` 上に placement new で構築する。clang はこれを定数式と認めない
-  （"placement new would change type of storage"）。`string` も `vector` もトリビアルに
+  ("placement new would change type of storage")。`string` も `vector` もトリビアルに
   破棄できないので、前回の `variant<string, …>` も同じ規則で説明がつく
 - パーサコンビネータの `alt` は `variant<T, U>` を返す。整数部
   `alt(parse0, seq(parse1to9, many(parse0to9)))` の第 2 選択肢は
@@ -411,43 +411,43 @@ static_assert(f());  // GCC 14: OK / clang 18 + libstdc++ 14: 非定数式
 - GCC 14 ではすべて通る。「コンパイル時 JSON パース」という README の謳い文句は
   現状 GCC でしか成立していない
 
-対処方針（未決定・選択肢だけ記録）:
+対処方針(未決定・選択肢だけ記録):
 
 1. コンビネータの戻り値から非トリビアル型を除く。`many` が `vector` を作らないようにする
-   （マッチ範囲の `string_view` だけ返す）。パース結果の値の大半はどうせ捨てているので、
+   (マッチ範囲の `string_view` だけ返す)。パース結果の値の大半はどうせ捨てているので、
    自然な方向。`sep_by` は既に範囲だけを返している
-2. libc++ では起きない可能性がある（libc++ は未導入のため未検証）。clang + libc++ の組み合わせを
+2. libc++ では起きない可能性がある(libc++ は未導入のため未検証)。clang + libc++ の組み合わせを
    CI に入れて確認する
 3. clang 19 以降で直っているかを確認する
 
 いずれにせよ、CI に clang を入れないと再発に気づけない。「次にやること」の CI の優先度を上げる根拠になる。
 
-## 2026-10-15: バグ修正 — 閉じていない文字列でプロセスが落ちる（`except` が空入力で `substr(1)`）
+## 2026-10-15 バグ修正: 閉じていない文字列でプロセスが落ちる(`except` が空入力で `substr(1)`)
 
 コンビネータの設計見直しのために `except` を読んでいて発見した。`except(p)` は「`p` がマッチしなければ 1 文字消費する」コンビネータだが、
 入力が空のときも `{str.substr(0, 1), str.substr(1)}` を返していた。空の `string_view` に対する `substr(1)` は
 `std::out_of_range` を投げる。
 
-- 実行時: `json_parser::try_parse("\"abc")` が **`std::terminate`（exit 134）** になる。
+- 実行時: `json_parser::try_parse("\"abc")` が **`std::terminate`(exit 134)** になる。
   パーサ関数はすべて `noexcept` なので、例外は外に出られない。「不正な入力は `nullopt` を返す」はずの
-  `try_parse` が、末尾で切れた入力（閉じていない文字列、`["abc`、`{"a` など）を渡しただけでプロセスを落としていた。
+  `try_parse` が、末尾で切れた入力(閉じていない文字列、`["abc`、`{"a` など)を渡しただけでプロセスを落としていた。
   信頼できない入力を受ける API としては最悪の失敗の仕方。元の main でも同じ
 - コンパイル時: `checked_string` では throw に到達して非定数式になり、結果的にはコンパイルエラーで「拒否」されていた。
   ただし理由は `__throw_out_of_range_fmt` で、偶然正しい結果になっていただけ
 - 予想していたのは「空のマッチで成功し続けて `many` が無限ループする」だったが、実際は `substr(1)` の
   範囲外例外が先に起きた。どちらにしても、「空入力に対して成功を返す」ことが根本原因
 
-修正: 入力が空なら失敗（`{nullopt, str}`）を返す。1 文字も消費できないので、これが正しい意味。
-再現テストは `static_assert`（定数評価）と実行時の `try_parse` / `parse` の両方で、切れた入力 5 種を検査する。
+修正: 入力が空なら失敗(`{nullopt, str}`)を返す。1 文字も消費できないので、これが正しい意味。
+再現テストは `static_assert`(定数評価)と実行時の `try_parse` / `parse` の両方で、切れた入力 5 種を検査する。
 
-コンビネータ設計への教訓（次項の設計変更に引き継ぐ）: 「成功したなら必ず 1 文字以上消費する」か、
+コンビネータ設計への教訓(次項の設計変更に引き継ぐ): 「成功したなら必ず 1 文字以上消費する」か、
 「`many` は前進しなかったら止まる」のどちらかを、すべてのコンビネータで守る必要がある。
 今は `opt` が空のマッチで成功するので、`many(opt(...))` と書けば無限ループする。
 
-## 2026-10-15: 設計判断 — コンビネータを「認識だけを行う中核 + 意味の処理は明示的なアクション」に（方針）
+## 2026-10-15 設計判断: コンビネータを「認識だけを行う中核 + 意味の処理は明示的なアクション」に(方針)
 
 clang でパーサが定数評価できない原因は、コンビネータが `vector` などの所有型を値として組み立てていることだった。
-対策として「コンビネータはマッチした範囲（入力の `string_view`）だけを返す」設計を検討した。
+対策として「コンビネータはマッチした範囲(入力の `string_view`)だけを返す」設計を検討した。
 作者の懸念は 2 点: ダングリングを起こさないことと、汎用パーサとしての設計に影響することだった。
 
 ダングリングについての結論: 新しい危険は生まれない。条件は次の規則 1 つ。
@@ -455,19 +455,19 @@ clang でパーサが定数評価できない原因は、コンビネータが `
 - **コンビネータは自分の入力を切り出すだけで、自前のバッファを作ってそれを切り出すことはしない。**
   これを守れば、すべての範囲は利用者が渡したバッファを指す
 - 公開 API の戻り値は `basic_json` / `bool` で、ビューは外に出ない。外に出る唯一の経路はビジターの
-  コールバックで、これは既存の `on_number_*` / `_raw` と同じ条件（コールバック中だけ有効）
+  コールバックで、これは既存の `on_number_*` / `_raw` と同じ条件(コールバック中だけ有効)
 - `checked_string` は `consteval` なので、一時オブジェクトを指すビューは定数式になれず、コンパイルエラーになる
 - 例外は文字列のデコード結果。`"a\nb"` のデコード結果は入力に存在しないので、範囲では表せない。
-  文法の認識（範囲）とデコード（所有）を 2 段階に分けて閉じ込める
+  文法の認識(範囲)とデコード(所有)を 2 段階に分けて閉じ込める
 
-汎用パーサとしての設計: 型付きの結果（`alt` が `variant`、`seq` が `tuple`、`many` が `vector`）を
+汎用パーサとしての設計: 型付きの結果(`alt` が `variant`、`seq` が `tuple`、`many` が `vector`)を
 実際に使っていたのは文字列のデコード 1 か所だけで、意味のある出力はすべてビジターのコールバックで
 外に出していた。つまり json20 は実質的に、すでに「認識はコンビネータ、意味の処理はコールバック」で動いていた。
 
 選択肢:
 
-- A. 認識だけを行う設計（全コンビネータが範囲を返す）。コンビネータを内部実装と割り切るなら最適
-- **B. 認識だけを行う中核 + 意味の処理を明示する `act(p, f)`（採用）**。コンビネータを将来公開する可能性を
+- A. 認識だけを行う設計(全コンビネータが範囲を返す)。コンビネータを内部実装と割り切るなら最適
+- **B. 認識だけを行う中核 + 意味の処理を明示する `act(p, f)`(採用)**。コンビネータを将来公開する可能性を
   作者が残したいため。汎用性は「結果の型」ではなく「副作用のコールバック」で確保する。
   ビジター設計と同じ考え方で一貫する。`act` は必要になった時点で追加する
 - C. 型付きの結果を残し、所有型だけを避ける。コンビネータごとに方針がばらつくので却下
@@ -475,7 +475,7 @@ clang でパーサが定数評価できない原因は、コンビネータが `
 実装は 3 コミットに分ける: (1) `lit` がリテラルを値で持つ、(2) 全コンビネータが範囲を返す、
 (3) 文字列の認識とデコードを分離する。
 
-計測（変更前、GCC 14.2、-O0、5 回の中央値。計測用 TU とスクリプトは `bench/compile_time/`）:
+計測(変更前、GCC 14.2、-O0、5 回の中央値。計測用 TU とスクリプトは `bench/compile_time/`):
 
 | TU | 変更前 |
 |---|---|
@@ -485,43 +485,43 @@ clang でパーサが定数評価できない原因は、コンビネータが `
 ### (1) `lit` がリテラルを値で持つ
 
 調査で見つけた潜在的なダングリングの形: `lit_parser` はリテラルを `string_view` で持っていた。
-リテラルの多くはローカル変数へのコピー（`auto const space = YK_JSON20_WIDEN_STRING(...)` など 20 か所以上）
+リテラルの多くはローカル変数へのコピー(`auto const space = YK_JSON20_WIDEN_STRING(...)` など 20 か所以上)
 なので、パーサオブジェクトがローカル変数を指すビューになっていた。今は同じ関数の中で使い切っているので
 問題は起きていない。しかし、コンビネータを公開して「パーサを作って返す関数」を書けるようにした瞬間に
 ダングリングする。
 
-修正: `lit_parser<N>` が `basic_fixed_string<charT, N>` を値で持つ（数バイトなのでコピーの負担はない）。
+修正: `lit_parser<N>` が `basic_fixed_string<charT, N>` を値で持つ(数バイトなのでコピーの負担はない)。
 これでパーサオブジェクトは外部を参照しなくなり、システム全体で参照になるのは
 「結果の範囲 → 利用者の入力」の 1 本だけになる。
 
 - テストは書いていない。コンビネータは今のところ `basic_json_parser` の private メンバで、外から構築できない。
-  この性質は構造で保証している（`lit_parser` が参照型のメンバを持たない）。公開するときにテストを追加する
+  この性質は構造で保証している(`lit_parser` が参照型のメンバを持たない)。公開するときにテストを追加する
 
 ### (2) 文字列の認識とデコードを分離する
 
 順序の変更: 当初の計画では「コンビネータを範囲に」を先にするつもりだったが、文字列のデコードが型付きの結果
-（`many` の `vector<variant<string_view, basic_string>>` を連結）に依存していた。先にこちらを分けないと、
+(`many` の `vector<variant<string_view, basic_string>>` を連結)に依存していた。先にこちらを分けないと、
 範囲化の時点で文字列のパースが壊れる。
 
 変更:
 
-- 文法の認識: 文字列本体のパーサは範囲（本体の `string_view`）だけを返す。エスケープの認識も範囲を返す
+- 文法の認識: 文字列本体のパーサは範囲(本体の `string_view`)だけを返す。エスケープの認識も範囲を返す
 - デコード: `decode_string(body)` が別処理として `basic_string` を作る。本体にバックスラッシュが
-  なければデコードせず、入力の範囲をそのままビジターに渡す（大半の文字列は割り当てなしで済む）
+  なければデコードせず、入力の範囲をそのままビジターに渡す(大半の文字列は割り当てなしで済む)
 - エスケープの表は `unescape(s, out)` の 1 か所だけ。`out == nullptr` なら認識だけ、出力先があれば
   デコードもする。以前は認識とデコードが同じ関数に混ざっていた。`\uXXXX` を足すときはここだけ変えればよい
 
 検討して見送ったこと:
 
 - 認識用と変換用に別々のエスケープ表を持つ: 片方だけ更新して食い違う危険があるので却下
-- 中身が不要なビジター（no-op ビジター）ではデコードを省く: ビジターが `on_string` を持つかどうかでは
-  中身の要否を判定できない（no-op ビジターも `on_string` を持つ）。上の「エスケープがなければデコードしない」で
+- 中身が不要なビジター(no-op ビジター)ではデコードを省く: ビジターが `on_string` を持つかどうかでは
+  中身の要否を判定できない(no-op ビジターも `on_string` を持つ)。上の「エスケープがなければデコードしない」で
   実用上の費用はほぼ消えるので、ここで止めた
 
-`noexcept` について: `parse_string` は `noexcept` のまま `basic_string` を割り当てる（変更前も同じ）。
+`noexcept` について: `parse_string` は `noexcept` のまま `basic_string` を割り当てる(変更前も同じ)。
 メモリ不足は `std::terminate` になる。これは今回の変更範囲外として、パーサ全体の `noexcept` 方針と一緒に別途判断する。
 
-テスト: 複数のエスケープと通常の文字が混在する文字列（両端がエスケープの場合も含む）、空文字列、
+テスト: 複数のエスケープと通常の文字が混在する文字列(両端がエスケープの場合も含む)、空文字列、
 不正なエスケープ `\q`、閉じていないエスケープ `"\"` を追加した。
 
 ### (3) すべてのコンビネータがマッチ範囲を返す
@@ -533,141 +533,141 @@ clang でパーサが定数評価できない原因は、コンビネータが `
 - `many`: `vector` に集めず、覆った範囲を返す。さらに「内側のパーサが失敗した**または前進しなかった**ら止まる」
   ガードを入れた。`except` のクラッシュ修正で記録した教訓への対策で、`many(opt(x))` のような空マッチの組み合わせでも停止する
 - `sep_by` / `ws` / 文字列本体: `seq` と `many` がそのまま範囲を返すので、範囲を組み直すコードが消えた
-- `parse_result` の説明コメントに、ライフタイムの規則（結果はすべて呼び出し側の入力を指す）を明記した
+- `parse_result` の説明コメントに、ライフタイムの規則(結果はすべて呼び出し側の入力を指す)を明記した
 - 副次効果: `many` が割り当てをしなくなったので、コンビネータの `noexcept` が嘘でなくなった
-  （割り当てが残るのは文字列のデコードと DOM 構築だけ）
+  (割り当てが残るのは文字列のデコードと DOM 構築だけ)
 - `act(p, f)` はまだ追加していない。今のところ意味の処理はすべて `parse_*` からビジターを直接呼んでいて、
   コンビネータの中で意味の処理をしたい箇所がない。公開の準備をするとき、または必要になった時点で入れる
 
-結果（GCC 14.2、-O0、5 回の中央値。「変更前」は `except` 修正直後・`lit` 変更前のヘッダ）:
+結果(GCC 14.2、-O0、5 回の中央値。「変更前」は `except` 修正直後・`lit` 変更前のヘッダ):
 
 | TU | 変更前 | 変更後 | 差 |
 |---|---|---|---|
 | 全 charT でパーサ + DOM ビジターを実体化 | 16.6 秒 | 9.2 秒 | −44% |
 | `checked_string` 5 本の定数評価 | 3.6 秒 | 2.3 秒 | −36% |
 
-（変更前の初回計測は 17.4 秒 / 3.6 秒。同じスナップショットを測り直した値を表に載せた。計測のぶれは 1 秒程度）
+(変更前の初回計測は 17.4 秒 / 3.6 秒。同じスナップショットを測り直した値を表に載せた。計測のぶれは 1 秒程度)
 
 clang 18 + libstdc++ 14:
 
-- 元の main 以来はじめて、テストスイート全体（`checked_string` の `static_assert` を含む）がコンパイルでき、全テストが通った
-- `checked_string` 5 本の定数評価は 3.8 秒（3 回の中央値）。変更前は定数評価そのものができなかったので比較値はない
-- EBCDIC テストは CMake のチェック（`-fexec-charset=IBM1047` が使えるか）で正しく除外された
+- 元の main 以来はじめて、テストスイート全体(`checked_string` の `static_assert` を含む)がコンパイルでき、全テストが通った
+- `checked_string` 5 本の定数評価は 3.8 秒(3 回の中央値)。変更前は定数評価そのものができなかったので比較値はない
+- EBCDIC テストは CMake のチェック(`-fexec-charset=IBM1047` が使えるか)で正しく除外された
 
-これで「clang 18 + libstdc++ 14 では `checked_string` が機能しない」問題（2026-10-15 訂正エントリ）は解消した。
-残っているのは `basic_json` 自体を定数式で作る場合（`variant<basic_string, …>`）だけで、これは
+これで「clang 18 + libstdc++ 14 では `checked_string` が機能しない」問題(2026-10-15 訂正エントリ)は解消した。
+残っているのは `basic_json` 自体を定数式で作る場合(`variant<basic_string, …>`)だけで、これは
 「constexpr パースの到達点」の問題として別に扱う。
 
-## 2026-10-15: CI（GitHub Actions）を追加
+## 2026-10-15 CI(GitHub Actions)を追加
 
 目的: これまで CMake のテストは GCC でしか回っておらず、clang で `checked_string` が動かない問題に
 main の時点から誰も気づかなかった。コンパイラ差を継続的に観測する仕組みとして CI を入れる。
 コンパイラ差は記事の一次情報でもあるので、ログが自動で残ること自体に価値がある。
 
-参考にしたもの: 作者の他リポジトリ `yk_util`（`run_test.yml`、2025-08）と `polyfill`（`test.yml`、2026-07）。
+参考にしたもの: 作者の他リポジトリ `yk_util`(`run_test.yml`、2025-08)と `polyfill`(`test.yml`、2026-07)。
 新しい `polyfill` の書き方に揃えた: `concurrency` による古い実行の取り消し、`paths` のアンカー、
-`build/_deps`（Catch2）のキャッシュ、警告集計用 `iris-cpp/cpp-warning-notifier` と、それが正規表現で読む
+`build/_deps`(Catch2)のキャッシュ、警告集計用 `iris-cpp/cpp-warning-notifier` と、それが正規表現で読む
 ジョブ名の形式 `C++<版> <構成> (<処理系> <版> on <OS>)`。
 
-行列（20 ジョブ）: {ubuntu 24.04, windows 2025-vs2026} × {Debug, Release} × {C++23, C++26} ×
+行列(20 ジョブ): {ubuntu 24.04, windows 2025-vs2026} × {Debug, Release} × {C++23, C++26} ×
 {GCC 14, Clang 21 + libstdc++, Clang 21 + libc++, MSVC 2022 (toolset 14.44), MSVC 2026 (toolset 14.51)}。
 OS と処理系の組は Linux に GCC / Clang、Windows に MSVC。
 
 `polyfill` から意図的に変えた点:
 
-- **Clang を libstdc++ と libc++ の両方で回す**: 定数評価で許されること（`std::variant`）と
+- **Clang を libstdc++ と libc++ の両方で回す**: 定数評価で許されること(`std::variant`)と
   `from_chars` の対応範囲が標準ライブラリで違うため。下記の libc++ 18 の観測も参照
 - **Windows でも Ninja を使う**: Visual Studio ジェネレータは、`setup-msvc-dev` で選んだ toolset の環境変数を
   無視して VS 既定の toolset でビルドする。そのため、行列の「MSVC 2022 (14.44)」の行が実際には別の toolset で
   ビルドされうる。Ninja なら環境の `cl` がそのまま使われる
-- **追加のフラグは `CMAKE_CXX_FLAGS_INIT` で渡す**: `-DCMAKE_CXX_FLAGS=`（空）を渡すと、MSVC で CMake が
-  既定で入れる `/EHsc` などが消える（`yk_util` が MSVC に `/EHsc` を明示していたのはこのためと推測）。
+- **追加のフラグは `CMAKE_CXX_FLAGS_INIT` で渡す**: `-DCMAKE_CXX_FLAGS=`(空)を渡すと、MSVC で CMake が
+  既定で入れる `/EHsc` などが消える(`yk_util` が MSVC に `/EHsc` を明示していたのはこのためと推測)。
   `_INIT` にはプラットフォーム既定値が追記されるので消えない
-- `permissions` に `contents: read` を明示（`polyfill` は `id-token: write` だけ）
-- テストディレクトリ名の違い（`test/` ではなく `tests/`）と、`cmake/**` / `CMakeLists.txt` を監視対象に追加
+- `permissions` に `contents: read` を明示(`polyfill` は `id-token: write` だけ)
+- テストディレクトリ名の違い(`test/` ではなく `tests/`)と、`cmake/**` / `CMakeLists.txt` を監視対象に追加
 
-CMake 側: `polyfill` の `YK_POLYFILL_CI` と同じ役割の `JSON20_CI` オプション（色付き診断）を追加した。
+CMake 側: `polyfill` の `YK_POLYFILL_CI` と同じ役割の `JSON20_CI` オプション(色付き診断)を追加した。
 名前は既存の `JSON20_INSTALL` に揃えた。
 
 EBCDIC テスト: 前のコミットで、有効化の判定を「`-fexec-charset=IBM1047` が通るか」から
-「リテラルが実際に EBCDIC に翻訳されるか」（`'A' == 0xC1` を `static_assert`）に変えた。
-MSVC は知らないオプションを警告（D9002）だけで無視するので、旧判定だと MSVC で EBCDIC テストが有効になり、
+「リテラルが実際に EBCDIC に翻訳されるか」(`'A' == 0xC1` を `static_assert`)に変えた。
+MSVC は知らないオプションを警告(D9002)だけで無視するので、旧判定だと MSVC で EBCDIC テストが有効になり、
 翻訳されないまま失敗するところだった。CI では GCC の行だけで EBCDIC テストが走る。
 
-手元での検証（ワークフローと同じ CMake コマンドで実行）:
+手元での検証(ワークフローと同じ CMake コマンドで実行):
 
 | 行 | 結果 |
 |---|---|
-| C++26 Release (GCC 14) | 5/5 通過（EBCDIC を含む） |
-| C++23 Debug (Clang 18 + libstdc++) | 4/4 通過（EBCDIC は判定で除外） |
-| C++26 Debug (Clang 18 + libc++ 18) | ビルド失敗（下記） |
+| C++26 Release (GCC 14) | 5/5 通過(EBCDIC を含む) |
+| C++23 Debug (Clang 18 + libstdc++) | 4/4 通過(EBCDIC は判定で除外) |
+| C++26 Debug (Clang 18 + libc++ 18) | ビルド失敗(下記) |
 
-ワークフローの YAML は actionlint で検査した。行列の展開（20 ジョブ）と、ジョブ名が警告集計の正規表現で
-意図どおりに分解されることも確認した。参照している外部アクションのバージョン（checkout v7、cache v6、
-setup-msvc-dev v4、cpp-warning-notifier v0.7）が実在することも確認した。
+ワークフローの YAML は actionlint で検査した。行列の展開(20 ジョブ)と、ジョブ名が警告集計の正規表現で
+意図どおりに分解されることも確認した。参照している外部アクションのバージョン(checkout v7、cache v6、
+setup-msvc-dev v4、cpp-warning-notifier v0.7)が実在することも確認した。
 
-### コンパイラ挙動メモ — libc++ 18
+### コンパイラ挙動メモ: libc++ 18
 
 - 浮動小数点の `std::from_chars` が**ない**。`double&` が `bool` に変換され、bool 誤用防止のために
   `= delete` された `from_chars(const char*, const char*, bool, int)` が選ばれて
   「call to deleted function」になる。エラーメッセージからは原因がわかりにくい。
-  libc++ に `from_chars_floating_point.h` が入ったのは LLVM 20（release/19.x には無く、20.x にある）。
+  libc++ に `from_chars_floating_point.h` が入ったのは LLVM 20(release/19.x には無く、20.x にある)。
   CI の Clang 21 では問題にならないはず
 - `std::variant<std::string, …>` を定数式で作れない点は libstdc++ と同じだが、**理由が違う**。
-  libc++ 18 は `variant` 自体を「リテラル型でない」と判定する（libstdc++ は placement new を拒否）
-- パーサ部分（`checked_string` の経路）は libc++ 18 でも定数評価できた。コンビネータを範囲に変えた効果
-- libc++ 21 で `basic_json` を定数式で作れるかは、CI の結果で確認する（未解決の問いの 1 つ）
+  libc++ 18 は `variant` 自体を「リテラル型でない」と判定する(libstdc++ は placement new を拒否)
+- パーサ部分(`checked_string` の経路)は libc++ 18 でも定数評価できた。コンビネータを範囲に変えた効果
+- libc++ 21 で `basic_json` を定数式で作れるかは、CI の結果で確認する(未解決の問いの 1 つ)
 
 未検証・既知の限界:
 
 - **MSVC ではまだ一度もビルドしていない**。初回の CI で失敗する可能性が高い。それ自体が記録すべき一次情報
 - トリガーは `polyfill` と同じく main への push と main 向けの PR だけ。このブランチの push では走らない。
   最初の実行は PR を作ったとき
-- テストが C++23（`<print>` など）を要求するので、ライブラリ本来の C++20 モードは CI で検査していない。
+- テストが C++23(`<print>` など)を要求するので、ライブラリ本来の C++20 モードは CI で検査していない。
   テスト側を C++20 で書けるようにするかは別途判断する
 - `run-notifier` ジョブは、CppWarningNotifier の GitHub App が json20 にインストールされていないと失敗する
 
-## 2026-10-15: CI 初回実行（PR #1）の結果と修正
+## 2026-10-15 CI 初回実行(PR #1)の結果と修正
 
-20 ジョブ中 6 ジョブだけが成功した。成功したのは GCC 14 の C++23（2 ジョブ）と Clang 21 + libc++ 21（4 ジョブ）。
+20 ジョブ中 6 ジョブだけが成功した。成功したのは GCC 14 の C++23(2 ジョブ)と Clang 21 + libc++ 21(4 ジョブ)。
 失敗の原因は 4 つに分かれた。どれも、それまで GCC 14 と Clang 18 でしか確かめていなかったために見えていなかったもの。
 
 | 失敗した行 | 原因 | 修正 |
 |---|---|---|
-| GCC 14 / C++26（2 ジョブ） | libstdc++ 14 が C++26 モードで EBCDIC に対応していない | json20 から `<ranges>` / `<locale>` を外した |
-| Clang 21 + libstdc++ 14（4 ジョブ） | libstdc++ 14 の `std::bind_front` を clang 21 が再帰的な文法の中で拒否する | 戻り値型を明示したラムダ `bind_visitor` に置き換えた |
+| GCC 14 / C++26(2 ジョブ) | libstdc++ 14 が C++26 モードで EBCDIC に対応していない | json20 から `<ranges>` / `<locale>` を外した |
+| Clang 21 + libstdc++ 14(4 ジョブ) | libstdc++ 14 の `std::bind_front` を clang 21 が再帰的な文法の中で拒否する | 戻り値型を明示したラムダ `bind_visitor` に置き換えた |
 | MSVC 全 8 ジョブ | 従来型プリプロセッサが `__VA_ARGS__` を 1 つの引数として渡す | 引数の数による振り分けをやめ、引数の数ごとのマクロを直接呼ぶようにした |
-| MSVC の Debug（4 ジョブ） | 別々の `string_view` のイテレータを混ぜて範囲を作っていた（こちらのバグ） | 長さから範囲を作る `consumed(str, rest)` に置き換えた |
+| MSVC の Debug(4 ジョブ) | 別々の `string_view` のイテレータを混ぜて範囲を作っていた(こちらのバグ) | 長さから範囲を作る `consumed(str, rest)` に置き換えた |
 
 ### 訂正: 手元での「GCC 14 / C++26 で通過」は C++23 だった
 
 CI 追加時のエントリに「C++26 Release (GCC 14) 5/5 通過」と書いたが、これは誤りだった。手元の CMake 3.28 は
 GCC 14 の C++26 用フラグを知らず、`CMAKE_CXX_STANDARD=26` を渡しても**何も言わずに `-std=gnu++23` で
-ビルドしていた**（同じ CMake でも clang 18 には `-std=gnu++26` が付いた）。`build.ninja` の `-std=` を
+ビルドしていた**(同じ CMake でも clang 18 には `-std=gnu++26` が付いた)。`build.ninja` の `-std=` を
 数えて発覚した。以降の手元検証は pip で入れた CMake 4.4 で行い、実際に付いた `-std=` を毎回確認している。
 
 教訓: 「C++26 で確認した」と書くなら、実際にコンパイラへ渡ったフラグまで確認する。
 
 ### libstdc++ 14 は C++26 モードで EBCDIC に対応していない
 
-C++26 モードの libstdc++ 14 では、`<format>` の内部（`bits/unicode.h` の `__charset_alias_match`）が
+C++26 モードの libstdc++ 14 では、`<format>` の内部(`bits/unicode.h` の `__charset_alias_match`)が
 `<charconv>` の表 `__from_chars_alnum_to_val_table` を使う。この表は `'0' + i` を添字にして作られていて、
 ASCII を前提にしている。EBCDIC では `'0'` が 0xF0 で、`char` は符号付きなので -16 になり、
 「array subscript value '-16' is outside the bounds」で定数評価が失敗する。
 
-- 単独で include しただけで失敗するヘッダ（GCC 14.2、`-std=gnu++26 -fexec-charset=IBM1047`）:
+- 単独で include しただけで失敗するヘッダ(GCC 14.2、`-std=gnu++26 -fexec-charset=IBM1047`):
   `<format>`、`<ranges>`、`<locale>`。C++23 モードでは失敗しない
 - json20 は `<ranges>` と `<locale>` を include していたので、EBCDIC + C++26 では json20.hpp を include するだけで
   コンパイルできなかった。EBCDIC をサポート対象にした以上、これは json20 の制限として扱う
 - `<locale>` は一度も使っていなかった。`<ranges>` は `std::views::reverse` 4 か所のためだけだったので、
   逆順イテレータ + `std::find_if` に置き換えて両方外した。ranges のアルゴリズムは `<algorithm>` にある
 - 将来 `<format>` などを使いたくなったら、EBCDIC + C++26 との両立を改めて判断する必要がある
-- GCC 15 以降で直っているかは未確認（手元に GCC 15 がない）
+- GCC 15 以降で直っているかは未確認(手元に GCC 15 がない)
 
 ### Clang 21 は libstdc++ 14 の `std::bind_front` を再帰的な文法の中で拒否する
 
-libstdc++ 14 の `_Bind_front::operator()` は、explicit object parameter（deducing this）と `std::forward_like` で
-書かれている。json20 の文法は再帰していて（値 → 配列 → 値、値 → オブジェクト → 値）、`bind_front` で包んだパーサを
+libstdc++ 14 の `_Bind_front::operator()` は、explicit object parameter(deducing this)と `std::forward_like` で
+書かれている。json20 の文法は再帰していて(値 → 配列 → 値、値 → オブジェクト → 値)、`bind_front` で包んだパーサを
 組み合わせると、clang 21 は次のエラーを出す:
 
 ```
@@ -676,8 +676,8 @@ no matching function for call to 'bind_front'
 ```
 
 - clang 18 は同じコードを受け付けていた。GCC 14 も受け付ける。clang 21 + libc++ 21 も問題ない
-  （libc++ の `bind_front` は別の実装）
-- 公式のビルド済み Clang 21.1.8（GitHub のリリースアーカイブ）を手元に入れて再現した。修正前は parse.cpp で
+  (libc++ の `bind_front` は別の実装)
+- 公式のビルド済み Clang 21.1.8(GitHub のリリースアーカイブ)を手元に入れて再現した。修正前は parse.cpp で
   21 件、main.cpp で 4 件のエラーで、CI と一致した。修正後は 0 件。apt.llvm.org はこの作業環境から
   接続できなかったので、2 GB のアーカイブを途中再開つきでダウンロードした
 - 修正: `bind_visitor(parser, vis)` が「戻り値型 `parse_result` を明示したラムダ」を返す。中で呼ぶのは普通の
@@ -687,34 +687,34 @@ no matching function for call to 'bind_front'
 ### MSVC: 従来型プリプロセッサと `__VA_ARGS__`
 
 ビジター呼び出しのマクロ `YK_JSON20_INVOKE_VISITOR(...)` は、`SELECTER(__VA_ARGS__, ARG4, ARG3, ARG2)` で
-引数の数を数えて振り分ける、よくある書き方だった。MSVC の既定の（従来型）プリプロセッサは、`__VA_ARGS__` を
-別のマクロに渡すとき 1 つの引数として扱う。そのため振り分けが常に間違い（warning C4003）、12 か所すべてで
+引数の数を数えて振り分ける、よくある書き方だった。MSVC の既定の(従来型)プリプロセッサは、`__VA_ARGS__` を
+別のマクロに渡すとき 1 つの引数として扱う。そのため振り分けが常に間違い(warning C4003)、12 か所すべてで
 「'on_null': undeclared identifier」などの構文エラーになった。`/Zc:preprocessor` を付ければ規格準拠の
 プリプロセッサになるが、既定では無効。
 
 検討した選択肢:
 
 1. `EXPAND(x) x` で 1 段かませる定番の回避策。MSVC で動くことは広く知られているが、手元で確かめる手段がない
-   （clang の `-fms-compatibility` はこの挙動を再現しないことを確認した）
-2. `/Zc:preprocessor` を必須にする（CMake の INTERFACE オプションで付ける）。ヘッダオンリーのライブラリが
+   (clang の `-fms-compatibility` はこの挙動を再現しないことを確認した)
+2. `/Zc:preprocessor` を必須にする(CMake の INTERFACE オプションで付ける)。ヘッダオンリーのライブラリが
    利用者にコンパイラオプションを強制することになるので却下
-3. **引数の数による振り分けをやめ、呼び出し箇所で `_ARG2` / `_ARG3` / `_ARG4` を直接呼ぶ（採用）**。
+3. **引数の数による振り分けをやめ、呼び出し箇所で `_ARG2` / `_ARG3` / `_ARG4` を直接呼ぶ(採用)**。
    可変長引数を使わないので、どのプリプロセッサでも同じに展開される。手元で検証できない以上、
    一番確実な方法を選んだ
 
 ### MSVC の Debug: 別々の `string_view` のイテレータを混ぜていた
 
-パーサはマッチ範囲を `string_view{str.begin(), rest.begin()}` で作っていた（7 か所）。`str` と `rest` は
+パーサはマッチ範囲を `string_view{str.begin(), rest.begin()}` で作っていた(7 か所)。`str` と `rest` は
 同じ文字配列を指す別々の `string_view` オブジェクト。MSVC のデバッグ用 `string_view` イテレータは、
 `operator-` で両者が同じビューのものかを検査し、違えば `_CrtDbgReport` を呼ぶ。これは constexpr ではないので、
-定数評価がすべて失敗した（`static_assert` で C2131、`checked_string` で C7595）。Release では検査がないので
+定数評価がすべて失敗した(`static_assert` で C2131、`checked_string` で C7595)。Release では検査がないので
 この失敗は出ない。
 
 - これは MSVC の過剰な検査ではなく、こちらのバグ。標準は、別の範囲に属するイテレータ同士の差に意味を与えていない
-  （たまたま同じ配列を指していても）
+  (たまたま同じ配列を指していても)
 - 修正: `consumed(str, rest)` = `str.substr(0, str.size() - rest.size())`。「`rest` は `str` の末尾部分」という
   `parse_result` の不変条件だけに依存し、イテレータを使わない
-- 手元では再現できない（libstdc++ と libc++ の `string_view` イテレータはただのポインタ）
+- 手元では再現できない(libstdc++ と libc++ の `string_view` イテレータはただのポインタ)
 
 ### 未解決の問いへの答え: libc++ 21 では `basic_json` を定数式で作れる
 
@@ -723,55 +723,55 @@ Clang 21 + libc++ 21 では、`static_assert(json{}.get_kind() == json_value_kin
 
 | 標準ライブラリ | `variant<basic_string, …>` の定数式構築 |
 |---|---|
-| libstdc++ 14（GCC 14） | 通る |
-| libstdc++ 14（Clang 18 / 21） | 失敗（placement new を拒否） |
-| libc++ 18 | 失敗（`variant` がリテラル型でない） |
+| libstdc++ 14(GCC 14) | 通る |
+| libstdc++ 14(Clang 18 / 21) | 失敗(placement new を拒否) |
+| libc++ 18 | 失敗(`variant` がリテラル型でない) |
 | libc++ 21 | **通る** |
 
 「constexpr パースの到達点」を考えるときの前提が変わる: Clang でも libc++ を使えば、DOM の定数式構築まで届く。
 
-## 2026-10-15: 調査 — 数値変換を自前で実装するためのアルゴリズム（方針は未決定）
+## 2026-10-15 調査: 数値変換を自前で実装するためのアルゴリズム(方針は未決定)
 
-発端: Codex のレビュー（PR #1）で、EBCDIC では数値の読み出しが動かないと指摘された（整数はコンパイルできず、
-浮動小数点は例外）。作者の判断で、数値変換を自前で実装することにした。
+発端: Codex のレビュー(PR #1)で、EBCDIC では数値の読み出しが動かないと指摘された(整数はコンパイルできず、
+浮動小数点は例外)。作者の判断で、数値変換を自前で実装することにした。
 
 json20 固有の条件:
 
-1. **charT に依存しない**（char / wchar_t / char8_t / char16_t / char32_t）
-2. **文字コードに依存しない**（EBCDIC を含む）。数字は翻訳されたリテラル `'0'` からの差で扱う。
+1. **charT に依存しない**(char / wchar_t / char8_t / char16_t / char32_t)
+2. **文字コードに依存しない**(EBCDIC を含む)。数字は翻訳されたリテラル `'0'` からの差で扱う。
    `'0'`〜`'9'` が連続していることは規格が保証している
-3. **C++20 で constexpr にできる**（`checked_string` の先にある「定数式でのパース」のため）
+3. **C++20 で constexpr にできる**(`checked_string` の先にある「定数式でのパース」のため)
 4. 外部依存なし。数値表などは自前のスクリプトで生成する
 
-### 文字列 → 浮動小数点（パース）
+### 文字列 → 浮動小数点(パース)
 
 - **Clinger の高速経路**: 仮数が 2^53 以下で、10 の指数の絶対値が 22 以下なら、double の乗算 / 除算 1 回で
   正確に求まる。JSON の数値の大半はここで終わる
-- **Eisel-Lemire**（Lemire, "Number Parsing at a Gigabyte per Second", 2021）: 5 の累乗の 128 ビット近似表
-  （約 650 項目、約 10 KB）と 64×64→128 ビットの乗算 1〜2 回。GCC の libstdc++、LLVM の libc++ の
-  `from_chars` が採用している（fast_float の README による）
-- **Mushtak と Lemire, "Fast Number Parsing Without Fallback"（2023）**: 有効数字が 19 桁以内（64 ビットに
-  収まる）なら、Eisel-Lemire の 128 ビット積は**常に**正しい丸めの判定に十分であることを証明した。
+- **Eisel-Lemire**(Lemire, "Number Parsing at a Gigabyte per Second", 2021): 5 の累乗の 128 ビット近似表
+  (約 650 項目、約 10 KB)と 64×64→128 ビットの乗算 1〜2 回。GCC の libstdc++、LLVM の libc++ の
+  `from_chars` が採用している(fast_float の README による)
+- **Mushtak と Lemire, "Fast Number Parsing Without Fallback"(2023)**: 有効数字が 19 桁以内(64 ビットに
+  収まる)なら、Eisel-Lemire の 128 ビット積は**常に**正しい丸めの判定に十分であることを証明した。
   fast_float のソースにも「The computed 'product' is always sufficient」とこの論文を引いたコメントがある
-- 補正が必要なのは 20 桁以上の入力だけ（切り捨てた仮数 w と w+1 で結果が変わる場合）。fast_float はここで
-  多倍長整数による桁の比較を行う（`bigint.h` + `digit_comparison.h` で約 1,100 行）
+- 補正が必要なのは 20 桁以上の入力だけ(切り捨てた仮数 w と w+1 で結果が変わる場合)。fast_float はここで
+  多倍長整数による桁の比較を行う(`bigint.h` + `digit_comparison.h` で約 1,100 行)
 - **fast_float は C++20 で constexpr、UTF-16/32 にも対応しているが、EBCDIC では動かない**。8 桁を一度に
-  処理する高速化（SWAR）で `0x3030303030303030`（ASCII の `'0'` を 8 個並べた値）を直書きしている
-  （`ascii_number.h`）。仮に取り込むとしても、この部分は書き換えが必要
+  処理する高速化(SWAR)で `0x3030303030303030`(ASCII の `'0'` を 8 個並べた値)を直書きしている
+  (`ascii_number.h`)。仮に取り込むとしても、この部分は書き換えが必要
 
-### 浮動小数点 → 最短文字列（シリアライズ）
+### 浮動小数点 → 最短文字列(シリアライズ)
 
 | アルゴリズム | 特徴 | json20 から見た評価 |
 |---|---|---|
-| Ryū（Adams, 2018） | 表が大きい。MSVC STL / libstdc++ の `to_chars` が採用 | 後発に速度で劣る |
-| Schubfach（Giulietti, 2017-2018） | 証明つき。Java 19 以降が採用。Dragonbox と Żmij の土台 | 単純で移植しやすい |
-| Dragonbox（Jeon, 2020） | 最短・正しい丸め・往復保証。**C++20 ですべての関数が constexpr**（README）。表は通常 9,904 バイト、圧縮版なら 584 バイト（約 20% 遅い）。数字の表が文字リテラル `{'0', '0'}, …` なので EBCDIC でも翻訳される | 第一候補。ただし本体は方針指定（policy）のテンプレートが多く、作者自身が移植には簡易版（約 1,500 行）を勧めている |
-| Żmij（Zverovich ほか, 2025-2026） | 最速（README によると Ryū の 3.8〜7 倍）。Lean で形式検証済み。Schubfach 系 | 速さの多くは SIMD と、文字を 64 ビット整数に詰める処理（バイト順と ASCII の前提）から来ている。charT・EBCDIC・constexpr の条件ではその部分を使えない |
-| yy（Guo / ibireme） | Schubfach 系で、10 の累乗との乗算が 1 回で済む | 独立した検証を確認できなかった |
+| Ryū(Adams, 2018) | 表が大きい。MSVC STL / libstdc++ の `to_chars` が採用 | 後発に速度で劣る |
+| Schubfach(Giulietti, 2017-2018) | 証明つき。Java 19 以降が採用。Dragonbox と Żmij の土台 | 単純で移植しやすい |
+| Dragonbox(Jeon, 2020) | 最短・正しい丸め・往復保証。**C++20 ですべての関数が constexpr**(README)。表は通常 9,904 バイト、圧縮版なら 584 バイト(約 20% 遅い)。数字の表が文字リテラル `{'0', '0'}, …` なので EBCDIC でも翻訳される | 第一候補。ただし本体は方針指定(policy)のテンプレートが多く、作者自身が移植には簡易版(約 1,500 行)を勧めている |
+| Żmij(Zverovich ほか, 2025-2026) | 最速(README によると Ryū の 3.8〜7 倍)。Lean で形式検証済み。Schubfach 系 | 速さの多くは SIMD と、文字を 64 ビット整数に詰める処理(バイト順と ASCII の前提)から来ている。charT・EBCDIC・constexpr の条件ではその部分を使えない |
+| yy(Guo / ibireme) | Schubfach 系で、10 の累乗との乗算が 1 回で済む | 独立した検証を確認できなかった |
 
 ### 整数
 
-- パース: 1 桁ずつのループ（`c - '0'`）と桁あふれの検査。SWAR は ASCII 前提かつ文字幅ごとの実装が必要なので
+- パース: 1 桁ずつのループ(`c - '0'`)と桁あふれの検査。SWAR は ASCII 前提かつ文字幅ごとの実装が必要なので
   使わない。JSON の整数は高々 20 桁なので、ループの費用は小さい
 - 出力: 2 桁ずつの表を文字列リテラル `"00010203…99"` で持てば、`YK_JSON20_WIDEN_STRING` で charT ごとに
   用意でき、EBCDIC でもコンパイラが翻訳する
@@ -779,66 +779,66 @@ json20 固有の条件:
 ### 表を共有できる可能性
 
 Eisel-Lemire が使う 5^q の正規化した 128 ビット近似と、Schubfach / Dragonbox が使う 10^k の近似は、
-2 の累乗の違いを除けば同じ数（10^k = 5^k × 2^k）なので、1 つの表を共有できる可能性がある。ただし丸め方向
-（切り捨てか切り上げか）の要件が違う項目があるので、実装時に確かめる必要がある。
+2 の累乗の違いを除けば同じ数(10^k = 5^k × 2^k)なので、1 つの表を共有できる可能性がある。ただし丸め方向
+(切り捨てか切り上げか)の要件が違う項目があるので、実装時に確かめる必要がある。
 
 ### 情報源についての注意
 
-この作業環境からは GitHub 以外のサイト（arXiv、著者のブログ）に接続できなかった。上の記述は各実装の README と
-ソースコード（fast_float、Dragonbox、Żmij）、および検索結果の要約に基づく。2026 年の比較論文
-（arXiv 2603.06581、"Converting Binary Floating-Point Numbers to Shortest Decimal Strings: An Experimental Review"）
+この作業環境からは GitHub 以外のサイト(arXiv、著者のブログ)に接続できなかった。上の記述は各実装の README と
+ソースコード(fast_float、Dragonbox、Żmij)、および検索結果の要約に基づく。2026 年の比較論文
+(arXiv 2603.06581、"Converting Binary Floating-Point Numbers to Shortest Decimal Strings: An Experimental Review")
 の本文は未読。
 
-## 2026-10-15: 設計判断 — 整数の変換を自前で実装（浮動小数点は次の PR で Dragonbox）
+## 2026-10-15 設計判断: 整数の変換を自前で実装(浮動小数点は次の PR で Dragonbox)
 
 作者の判断:
 
 - 数値変換は自前で実装する。浮動小数点の出力は **Dragonbox** を採用する
-- この PR（#1）では**整数だけ**を実装する。浮動小数点（Dragonbox による出力と Eisel-Lemire によるパース）は
+- この PR(#1)では**整数だけ**を実装する。浮動小数点(Dragonbox による出力と Eisel-Lemire によるパース)は
   規模が大きく、乱数による大量の往復テストも要るので、別の PR に分ける
 
 整数の実装:
 
-- パース: 1 桁ずつのループで、各文字を翻訳済みのリテラル `'0'` からの差（0〜9）として読む。符号付きの型では
+- パース: 1 桁ずつのループで、各文字を翻訳済みのリテラル `'0'` からの差(0〜9)として読む。符号付きの型では
   先頭の `-` を受け付ける。最も小さい負の値の絶対値は最大値より 1 大きいので、上限をそれに合わせてから
-  桁あふれを検査する（`value > (limit - digit) / 10` なら範囲外）。数字がない場合と範囲外の場合は、これまでどおり
-  `std::invalid_argument` を投げる（例外の型は変えない）。最初の数字でない文字で止まるのは `from_chars` と同じ
+  桁あふれを検査する(`value > (limit - digit) / 10` なら範囲外)。数字がない場合と範囲外の場合は、これまでどおり
+  `std::invalid_argument` を投げる(例外の型は変えない)。最初の数字でない文字で止まるのは `from_chars` と同じ
 - 出力: 2 桁ずつの表を文字列リテラル `"000102…99"` で持ち、`YK_JSON20_WIDEN_STRING` で charT ごとに用意する。
   リテラルなので、EBCDIC でもコンパイラが数字を翻訳する。符号付きの型の最小値は、符号なしの型に移してから
-  `0 - value` で絶対値を作る（`-x` は桁あふれするため）
-- bool は対象外（`!std::same_as<T, bool>` で除外）。浮動小数点は次の PR まで `char` 専用の
+  `0 - value` で絶対値を作る(`-x` は桁あふれするため)
+- bool は対象外(`!std::same_as<T, bool>` で除外)。浮動小数点は次の PR まで `char` 専用の
   `std::from_chars` / `std::to_chars` のまま
 
 効果:
 
-- EBCDIC（`-fexec-charset=IBM1047`）で、整数の読み出しと書き出しがコンパイルでき、値も正しい
-  （tests/ebcdic.cpp に `static_assert` で追加。修正前は libstdc++ の `<charconv>` の中でコンパイルエラー）
+- EBCDIC(`-fexec-charset=IBM1047`)で、整数の読み出しと書き出しがコンパイルでき、値も正しい
+  (tests/ebcdic.cpp に `static_assert` で追加。修正前は libstdc++ の `<charconv>` の中でコンパイルエラー)
 - **wchar_t / char8_t / char16_t / char32_t でも整数を扱えるようになった**。これまでは serializer /
   deserializer が `char` にしか特殊化されておらず、`wjson(42)` も `as_signed_integer` もコンパイルできなかった
-- **C++20 で constexpr**（`from_chars` の整数版が constexpr になったのは C++23 から）。
+- **C++20 で constexpr**(`from_chars` の整数版が constexpr になったのは C++23 から)。
   `static_assert(serializer<int, char>::serialize(-1234) == "-1234")` のように定数式で使える
 
 見送ったこと:
 
-- 8 桁を一度に処理する高速化（SWAR）: ASCII の値を直書きする必要があり、文字幅ごとに実装も要る。JSON の整数は
+- 8 桁を一度に処理する高速化(SWAR): ASCII の値を直書きする必要があり、文字幅ごとに実装も要る。JSON の整数は
   高々 20 桁なので、1 桁ずつのループとの差は小さい
 - 例外の型を `std::out_of_range` に変える: 範囲外を表す型としてはそちらが正確だが、挙動の変更になるので別の判断とする
 
-MSVC への配慮: 定数式の中で初期化していない配列を使うこと（C++20 で許可）を MSVC が受け付けるか手元で確かめられない
+MSVC への配慮: 定数式の中で初期化していない配列を使うこと(C++20 で許可)を MSVC が受け付けるか手元で確かめられない
 ので、出力用のバッファは `{}` で値初期化した。
 
-## 2026-10-15: 設計判断 — ネストの深さの上限はライブラリで扱わない（作者判断）
+## 2026-10-15 設計判断: ネストの深さの上限はライブラリで扱わない(作者判断)
 
 重複キーのオプションを検討する中で、深く入れ子になった入力の挙動を測った。パーサは再帰下降なので、
 入れ子 1 段ごとにスタックを消費する。
 
-測定（GCC 14.2、-O2、no-op ビジターで `try_parse`、既定のスタック 8 MB）:
+測定(GCC 14.2、-O2、no-op ビジターで `try_parse`、既定のスタック 8 MB):
 
 | `[` の入れ子の深さ | 入力の大きさ | 結果 |
 |---|---|---|
 | 1,000 | 2 KB | パース成功 |
 | 5,000 | 10 KB | パース成功 |
-| 10,000 | 20 KB | セグメンテーション違反（exit 139） |
+| 10,000 | 20 KB | セグメンテーション違反(exit 139) |
 | 100,000 | 200 KB | セグメンテーション違反 |
 
 判断: **上限はライブラリでは設けない**。作者の判断で、これはライブラリ側の問題ではないとした。
@@ -846,14 +846,14 @@ MSVC への配慮: 定数式の中で初期化していない配列を使うこ�
 
 - 外部からの入力を `parse` / `try_parse` に渡す場合は、呼び出し側が深さや大きさを制限する必要がある
 - 上の数字は目安。限界の深さは、スタックの大きさ、最適化レベル、ビジター、コンパイラによって変わる
-  （-O0 では 1 段あたりのスタック消費が増えるはず。未測定）
+  (-O0 では 1 段あたりのスタック消費が増えるはず。未測定)
 - 検討して見送った案: 重複キーのオプションと同じ構造体に深さの上限を入れ、既定値を設けて超えたら拒否する
 
-## 2026-10-15: 設計判断 — 重複キーは既定で拒否し、先勝ち・後勝ちを実行時オプションで選べる
+## 2026-10-15 設計判断: 重複キーは既定で拒否し、先勝ち・後勝ちを実行時オプションで選べる
 
 ### 発端: 重複キーの値が標準ライブラリによって変わっていた
 
-オブジェクトを作るとき、キーを `std::ranges::sort`（安定でないソート）で並べていた。同じキー同士の順序は
+オブジェクトを作るとき、キーを `std::ranges::sort`(安定でないソート)で並べていた。同じキー同士の順序は
 保証されず、`at()` は並べ替えた結果の先頭を返す。`{"k":0, …, "k":n-1}` のように同じキーを n 個含む入力で測った
 結果:
 
@@ -865,37 +865,37 @@ MSVC への配慮: 定数式の中で初期化していない配列を使うこ�
 | 100 | 95 | 49 |
 
 - 少数の要素では挿入ソートになり順序が保たれるので、テストでは見えていなかった
-- 同じ入力からプラットフォームによって違う値が読まれる。パーサ間の解釈の食い違い（parser differential）を
+- 同じ入力からプラットフォームによって違う値が読まれる。パーサ間の解釈の食い違い(parser differential)を
   突く攻撃の典型的な入口になる
 - `erase(key)` は 1 つしか消さず、消した後も値が見つかった。初期化子リストも重複を保持する一方、`insert()` は
   重複を拒否するという非対称もあった
 
-### 判断（作者と合意）
+### 判断(作者と合意)
 
 - **パーサとビジターの層は変えない**: 重複も含めてすべてのペアをそのまま渡す。RFC 8259 の文法は重複を禁止しておらず、
-  「名前は一意であるべき（SHOULD）」とだけ定めている。全ペアが必要な利用者はこの層を使う
-- **DOM（`basic_json`）は常にキーが一意**: どの方針で作っても、出来上がる値は「キーは一意」を満たす。
+  「名前は一意であるべき(SHOULD)」とだけ定めている。全ペアが必要な利用者はこの層を使う
+- **DOM(`basic_json`)は常にキーが一意**: どの方針で作っても、出来上がる値は「キーは一意」を満たす。
   これを型の不変条件として扱う。`at()` / `erase()` / `insert()` の意味はこの前提で決まっている
-- **既定は拒否**: `parse` は `std::invalid_argument` を投げ、`try_parse` は `nullopt` を返す。I-JSON（RFC 7493）は
-  重複を禁止（MUST NOT）しており、「kind が合わなければ例外、暗黙の変換はしない」という json20 の厳格な方針とも一貫する。
+- **既定は拒否**: `parse` は `std::invalid_argument` を投げ、`try_parse` は `nullopt` を返す。I-JSON(RFC 7493)は
+  重複を禁止(MUST NOT)しており、「kind が合わなければ例外、暗黙の変換はしない」という json20 の厳格な方針とも一貫する。
   既定を一番厳しくしておけば、後から緩い選択肢を足しても既存の利用者は影響を受けない
 - **先勝ち・後勝ちを実行時オプションで選べる**: `parse(str, {.duplicate_keys = duplicate_key_policy::last_wins})`。
   後勝ちは ECMAScript の `JSON.parse` や Python の `json` と同じ挙動
 - **初期化子リスト・`json::object({...})` は常に拒否**: ソースに重複を書くのは誤りなので、オプションの対象にしない。
-  代入は一時オブジェクトで検査してから反映するので、失敗しても代入先は変わらない（強い例外保証）
+  代入は一時オブジェクトで検査してから反映するので、失敗しても代入先は変わらない(強い例外保証)
 - **`checked_string` は文法だけを保証する**: 重複は文法上正しいので検査しない、とコメントで明記した
 
 ### 検討して見送った案
 
-- **全部保持を選択肢に入れる**: 格納（並べ替えた `vector<pair>`）自体は重複を持てるが、「キーは一意」が型の保証から
+- **全部保持を選択肢に入れる**: 格納(並べ替えた `vector<pair>`)自体は重複を持てるが、「キーは一意」が型の保証から
   値ごとの性質に変わる。`at()` がどれを返すか、`erase()` が何個消すか、`insert()` がどう振る舞うかを決め直す必要があり、
   インターフェース自体を変えることになる。必要なら、ビジターの層を使うか、別の型として作る
-- **方針をテンプレート引数（ポリシー型）にする**: 方針ごとにテンプレートが実体化され、コンパイル時間とコードサイズが増える。
+- **方針をテンプレート引数(ポリシー型)にする**: 方針ごとにテンプレートが実体化され、コンパイル時間とコードサイズが増える。
   分岐はオブジェクト 1 つにつき 1 回なので、実行時の値で十分。`basic_json` の型を方針ごとに分ける理由もない
 - **重複を検出したら、ビジターの中で例外を投げる**: パーサの関数は `noexcept` なので `std::terminate` になる。
   ビジターに「拒否した重複があった」という印を残し、`parse` / `try_parse` が最後にそれを見る形にした。
-  印が立っても DOM は（先勝ちで）作られるので、ビジターを直接使う場合も `get()` は有効な値を返す
-- **`checked_string` でも重複を拒否する**: エスケープを含むキー（`"/"` と `"\/"` は同じキー）はデコードしてから
+  印が立っても DOM は(先勝ちで)作られるので、ビジターを直接使う場合も `get()` は有効な値を返す
+- **`checked_string` でも重複を拒否する**: エスケープを含むキー(`"/"` と `"\/"` は同じキー)はデコードしてから
   比べる必要があり、定数評価の費用が増える。文法の検査という役割に絞った
 
 ### 実装
@@ -903,33 +903,33 @@ MSVC への配慮: 定数式の中で初期化していない配列を使うこ�
 `normalize_object(members, keep_last)`: キーで並べ替え、同じキーの中から入力順で最初か最後の 1 つを残す。重複があったかを返す。
 同じキーの間の順序は、入力順の番号を併用した比較で決める。`std::stable_sort` が constexpr になるのは C++26 からなので使わない。
 
-キーの比較はデコード済みの文字列で行うので、`{"/":1,"\/":2}` も重複として扱われる（テストで確認）。
+キーの比較はデコード済みの文字列で行うので、`{"/":1,"\/":2}` も重複として扱われる(テストで確認)。
 
-## 2026-10-15: 計測 — 5 の累乗の表を「圧縮して埋め込む（A）」か「コンパイル時に生成する（B）」か（方針は未決定）
+## 2026-10-15 計測: 5 の累乗の表を「圧縮して埋め込む(A)」か「コンパイル時に生成する(B)」か(方針は未決定)
 
-作者の方針: json20 のヘッダはなるべく小さくしたい。浮動小数点の変換（パースの Eisel-Lemire、出力の Dragonbox）には
+作者の方針: json20 のヘッダはなるべく小さくしたい。浮動小数点の変換(パースの Eisel-Lemire、出力の Dragonbox)には
 5 の累乗の 128 ビット近似表が要る。そのまま埋め込むと約 10 KB の数値の羅列になるので、2 つの方式を別々に実装して計測し、
-その結果で決めることにした。試作は `bench/pow5_table/` に置いた（ライブラリ本体には入れていない）。
+その結果で決めることにした。試作は `bench/pow5_table/` に置いた(ライブラリ本体には入れていない)。
 
 ### 2 つの表は 1 つの値から導ける
 
-F(q) = 「5^q を [2^127, 2^128) に正規化して切り捨てた値」（q = -342〜326 の 669 項目）とすると:
+F(q) = 「5^q を [2^127, 2^128) に正規化して切り捨てた値」(q = -342〜326 の 669 項目)とすると:
 
-- Eisel-Lemire（fast_float の `power_of_five_128`、q = -342〜308）= F(q) + (-27 ≤ q < 0 なら 1)
-- Dragonbox（binary64 のキャッシュ、k = -292〜326）= F(k) + (0 ≤ k ≤ 55 なら 0、それ以外は 1)。
+- Eisel-Lemire(fast_float の `power_of_five_128`、q = -342〜308)= F(q) + (-27 ≤ q < 0 なら 1)
+- Dragonbox(binary64 のキャッシュ、k = -292〜326)= F(k) + (0 ≤ k ≤ 55 なら 0、それ以外は 1)。
   k が 0〜55 のときだけ 128 ビットで割り切れる
 
-Python で計算した値（`pow5_reference.py`）を、fast_float の表（651 項目）と Dragonbox の表（619 項目）の実物と
+Python で計算した値(`pow5_reference.py`)を、fast_float の表(651 項目)と Dragonbox の表(619 項目)の実物と
 全項目照合して一致を確かめた。fast_float の q < -27 の項目は「⌊X⌋ + 1 をシフトして切り捨て」という特殊な作り方だが、
 結果は F と完全に一致した。したがって、A・B とも「F(q) を返す関数」を作れば両アルゴリズムの表がそろう。
 
 ### A: 圧縮して埋め込む
 
-- 27 個おき（q = -351 + 27i）の F を基準値として持ち（26 項目）、残りは「基準値 × 5^offset の上位 128 ビット」に
-  項目ごとの補正値（0〜2、2 ビット）を足して復元する。定数は 26 × 16 + 21 × 8 = **584 バイト**
-- Dragonbox の圧縮版（同じく 584 バイト）をそのまま使わなかった理由: Dragonbox の圧縮版が復元する値は通常の表と
-  **同一ではない**（自分の範囲で 290 項目が 1〜2 大きい）。Dragonbox はその誤差を許容するよう証明されているが、
-  Eisel-Lemire の証明（Mushtak と Lemire）は表の値そのものを前提にしているので、F を正確に復元する必要がある
+- 27 個おき(q = -351 + 27i)の F を基準値として持ち(26 項目)、残りは「基準値 × 5^offset の上位 128 ビット」に
+  項目ごとの補正値(0〜2、2 ビット)を足して復元する。定数は 26 × 16 + 21 × 8 = **584 バイト**
+- Dragonbox の圧縮版(同じく 584 バイト)をそのまま使わなかった理由: Dragonbox の圧縮版が復元する値は通常の表と
+  **同一ではない**(自分の範囲で 290 項目が 1〜2 大きい)。Dragonbox はその誤差を許容するよう証明されているが、
+  Eisel-Lemire の証明(Mushtak と Lemire)は表の値そのものを前提にしているので、F を正確に復元する必要がある
 - 格子を 27 の倍数に揃えたのは、q = 0 が基準値になるようにするため。-342 起点の格子では、F(0) = 2^127 ちょうどの
   ところで積が 2 の累乗の境界のわずかに下に来て、正規化のシフト量がずれる外れ値が 1 つ出た
 - 補正値の分布は 0 が 374 項目、1 が 275 項目、2 が 20 項目。定数は `gen_variant_a.py` で生成し、生成時に全項目を検証する
@@ -938,42 +938,42 @@ Python で計算した値（`pow5_reference.py`）を、fast_float の表（651 
 
 - 数値の羅列を一切持たない。q ≥ 0 は 5^q を 5 倍ずつ、q < 0 は 2^959 を 5 で割り続けて作り、上位 128 ビットを取る。
   切り捨てた値をさらに切り捨てても元の切り捨てに一致するので、誤差は溜まらない
-- 32 ビット単位の多倍長整数で計算するので、128 ビット整数型のない MSVC でも定数評価できる（はず。下記）
+- 32 ビット単位の多倍長整数で計算するので、128 ビット整数型のない MSVC でも定数評価できる(はず。下記)
 - 表は変数テンプレートなので、使わない翻訳単位では生成されない
 
 ### 検証
 
 `verify.cpp` が、A・B の全 669 項目を参照値と照合する。実行時と、`static_assert` による定数評価の両方で確かめる。
-GCC 14、Clang 21（libc++）、Clang 18（libstdc++）で全項目一致。`__int128` を使わない移植用の乗算の経路
-（MSVC が通る経路）でも一致した。
+GCC 14、Clang 21(libc++)、Clang 18(libstdc++)で全項目一致。`__int128` を使わない移植用の乗算の経路
+(MSVC が通る経路)でも一致した。
 
-### 計測（GCC 14.2 / Clang 21.1.8 + libc++、x86-64、`bench/pow5_table/measure.sh`）
+### 計測(GCC 14.2 / Clang 21.1.8 + libc++、x86-64、`bench/pow5_table/measure.sh`)
 
-| 項目 | A（圧縮） | B（生成） |
+| 項目 | A(圧縮) | B(生成) |
 |---|---|---|
-| ヘッダ（行 / バイト） | 105 行 / 3,610 B（うち数値 47 行） | 97 行 / 3,051 B（数値なし） |
-| コンパイル時間の増分（表を使う翻訳単位 1 つあたり、基準との差） | GCC +0.01〜0.02 秒、Clang ほぼ 0 | GCC **+0.24 秒**、Clang **+0.37〜0.42 秒** |
-| 実行時間（ランダムな q で 1 回参照） | GCC 8.4 ns、Clang 7.9 ns | GCC **0.9 ns**、Clang **0.6 ns** |
-| オブジェクトのデータ（-O2） | 800 B（584 B + 5^0〜5^26 の表 216 B） | **10,704 B** |
-| オブジェクトのコード（-O2） | 273 B | 29 B |
-| 定数評価に必要な上限 | — | Clang 約 23 万ステップ（既定の上限 約 105 万の 22%）、GCC 約 206 万 ops（既定 2^33） |
+| ヘッダ(行 / バイト) | 105 行 / 3,610 B(うち数値 47 行) | 97 行 / 3,051 B(数値なし) |
+| コンパイル時間の増分(表を使う翻訳単位 1 つあたり、基準との差) | GCC +0.01〜0.02 秒、Clang ほぼ 0 | GCC **+0.24 秒**、Clang **+0.37〜0.42 秒** |
+| 実行時間(ランダムな q で 1 回参照) | GCC 8.4 ns、Clang 7.9 ns | GCC **0.9 ns**、Clang **0.6 ns** |
+| オブジェクトのデータ(-O2) | 800 B(584 B + 5^0〜5^26 の表 216 B) | **10,704 B** |
+| オブジェクトのコード(-O2) | 273 B | 29 B |
+| 定数評価に必要な上限 | なし | Clang 約 23 万ステップ(既定の上限 約 105 万の 22%)、GCC 約 206 万 ops(既定 2^33) |
 
 - 基準の翻訳単位には、json20 本体が既に include している `<array>` などを含めた。含めない初回の計測では、
-  libc++ の `<array>` を読む時間（約 0.6 秒）が A の増分のように見えていた
-- A が B の約 10 倍遅いのは、1 回の参照が約 80 命令になるため（除算なし、乗算 2 回）。生成コードを確認した。
-  変換 1 回あたりの全体の時間（数十 ns）に対して、約 8 ns の上乗せになる
+  libc++ の `<array>` を読む時間(約 0.6 秒)が A の増分のように見えていた
+- A が B の約 10 倍遅いのは、1 回の参照が約 80 命令になるため(除算なし、乗算 2 回)。生成コードを確認した。
+  変換 1 回あたりの全体の時間(数十 ns)に対して、約 8 ns の上乗せになる
 - **MSVC は未計測**。MSVC の定数評価の上限は clang とは数え方が違い、既定値も手元では確かめられない。
   `verify.cpp` を CMake のテストとして登録したので、CI で MSVC でもコンパイルされる。`static_assert` があるので、
   MSVC が B の表を既定の上限内で作れなければ、ビルドの失敗として現れる
 
-### 読み取れること（判断はまだ）
+### 読み取れること(判断はまだ)
 
-- 「ヘッダを小さく」を**ソースの見た目**で測るなら、B の方が小さい（数値の羅列がない）
+- 「ヘッダを小さく」を**ソースの見た目**で測るなら、B の方が小さい(数値の羅列がない)
 - 「ヘッダを小さく」を**利用者が払う費用**で測るなら、A の方が軽い。B は、浮動小数点を使う翻訳単位ごとに
   0.2〜0.4 秒のコンパイル時間と、約 10 KB のバイナリを払う
-- 実行時の速さは B が圧倒的に有利（参照 1 回が 1 ns 未満）
+- 実行時の速さは B が圧倒的に有利(参照 1 回が 1 ns 未満)
 
-## 2026-10-15: 設計判断 — 5 の累乗の表は A（圧縮して埋め込む）を採用し、選択可能にはしない
+## 2026-10-15 設計判断: 5 の累乗の表は A(圧縮して埋め込む)を採用し、選択可能にはしない
 
 前項の計測を受けて、作者の方針は「コンパイル時の費用とバイナリサイズを可能なら下げたい」。
 
@@ -981,17 +981,17 @@ GCC 14、Clang 21（libc++）、Clang 18（libstdc++）で全項目一致。`__i
 
 - **A を唯一の実装として採用する**。コンパイル時の費用はほぼ 0、バイナリのデータは 0.8 KB、ソースの数値は 47 行
 - **A と B を選択可能にはしない**
-- 試作（`bench/pow5_table/`）は、この記録を残して削除した
+- 試作(`bench/pow5_table/`)は、この記録を残して削除した
 
-B を採用しない理由: B の利点は「実行時に速い（参照 1 回が 1 ns 未満）」と「ソースに数値の羅列がない」の 2 つ。
-速さは、表をそのまま埋め込む従来の方式（約 670 行の数値、バイナリ 10.7 KB）でもコンパイル時の費用なしに得られる。
+B を採用しない理由: B の利点は「実行時に速い(参照 1 回が 1 ns 未満)」と「ソースに数値の羅列がない」の 2 つ。
+速さは、表をそのまま埋め込む従来の方式(約 670 行の数値、バイナリ 10.7 KB)でもコンパイル時の費用なしに得られる。
 コンパイル時の費用とバイナリサイズを重視する方針のもとでは、B が勝つのは「数値の羅列がない」点だけで、
 そのために浮動小数点を使う翻訳単位すべてが 0.2〜0.4 秒を払うことになる。
 
 | 方式 | コンパイル時の費用 | バイナリ | 参照 1 回 | ソースの数値 |
 |---|---|---|---|---|
-| A（圧縮） | ほぼ 0 | 0.8 KB | 約 8 ns | 47 行 |
-| B（生成） | +0.2〜0.4 秒 / 翻訳単位 | 10.7 KB | 1 ns 未満 | なし |
+| A(圧縮) | ほぼ 0 | 0.8 KB | 約 8 ns | 47 行 |
+| B(生成) | +0.2〜0.4 秒 / 翻訳単位 | 10.7 KB | 1 ns 未満 | なし |
 | 表をそのまま埋め込む | ほぼ 0 | 10.7 KB | 1 ns 未満 | 約 670 行 |
 
 選択可能にしない理由:
@@ -999,8 +999,8 @@ B を採用しない理由: B の利点は「実行時に速い（参照 1 回�
 - 実装が 2 つになり、CI の行列も方式ごとに要る
 - 両方のコードがヘッダに入るので、「ヘッダを小さく」という方針と逆行する
 - 選び方の手段に難がある。テンプレート引数にすると、方針が `basic_json` や変換関数の型に伝わる
-  （重複キーで避けた「型が方針ごとに分かれる」問題と同じ）。マクロで切り替えると、翻訳単位ごとに値が違ったときに
-  同じ名前の inline 関数の定義が食い違い、ODR 違反（未定義動作）になる
+  (重複キーで避けた「型が方針ごとに分かれる」問題と同じ)。マクロで切り替えると、翻訳単位ごとに値が違ったときに
+  同じ名前の inline 関数の定義が食い違い、ODR 違反(未定義動作)になる
 
 将来の拡張: 実行時の速さが必要になったら、B ではなく「表をそのまま埋め込む」方式を opt-in のマクロで選べるようにする。
 その際は、libstdc++ の `_GLIBCXX_USE_CXX11_ABI` のように方式ごとに inline 名前空間を分け、ODR 違反を避ける。
@@ -1009,184 +1009,184 @@ B を採用しない理由: B の利点は「実行時に速い（参照 1 回�
 
 ### 削除した試作の取り出し方
 
-試作はコミット `746d7fc`（`bench: prototype and measure compressed vs generated power-of-five table`）にある。
+試作はコミット `746d7fc`(`bench: prototype and measure compressed vs generated power-of-five table`)にある。
 浮動小数点の実装で A をライブラリに取り込むときは、そこから取り出して使う:
 
-- `pow5_reference.py`: F(q) の正確な値（両ライブラリの表との対応の説明つき）
-- `gen_variant_a.py`: A の定数（基準値 26 項目、補正値 21 ワード）の生成と、全項目の検証
+- `pow5_reference.py`: F(q) の正確な値(両ライブラリの表との対応の説明つき)
+- `gen_variant_a.py`: A の定数(基準値 26 項目、補正値 21 ワード)の生成と、全項目の検証
 - `variant_a.hpp` / `common.hpp`: A の復元処理と、F(q) から Eisel-Lemire 用・Dragonbox 用の値を導く関数
-- `verify.cpp` / `reference.inc` / `gen_reference.py`: 全 669 項目の照合（実行時と `static_assert`）
-- `variant_b.hpp` と計測一式（`measure.sh`、`bench_runtime.cpp`、`tu_*.cpp`）: 比較の記録として
+- `verify.cpp` / `reference.inc` / `gen_reference.py`: 全 669 項目の照合(実行時と `static_assert`)
+- `variant_b.hpp` と計測一式(`measure.sh`、`bench_runtime.cpp`、`tu_*.cpp`): 比較の記録として
 
 MSVC で B の表を定数評価できるかは、CI にかける前に方針が決まったので未確認のまま。
 
-## 2026-10-15: 実装 — 5 の累乗の表（A）をヘッダに取り込む
+## 2026-10-15 実装: 5 の累乗の表(A)をヘッダに取り込む
 
-前項の判断どおり、試作（`746d7fc`）の A をライブラリに取り込んだ。
+前項の判断どおり、試作(`746d7fc`)の A をライブラリに取り込んだ。
 
-- `include/yk/json20.hpp` の `detail::number` に、128 ビットの演算（`u128`、`umul128`）と `pow5` を置いた。
+- `include/yk/json20.hpp` の `detail::number` に、128 ビットの演算(`u128`、`umul128`)と `pow5` を置いた。
   `pow5::floor(q)` が F(q) を復元し、`eisel_lemire(q)`、`dragonbox_binary64(k)`、`dragonbox_binary32(k)` が
   それぞれのライブラリの表の値を F から導く
-- `umul128` は `__SIZEOF_INT128__` があれば `unsigned __int128` を使い、なければ（MSVC）32 ビットずつに分けて
+- `umul128` は `__SIZEOF_INT128__` があれば `unsigned __int128` を使い、なければ(MSVC)32 ビットずつに分けて
   掛ける。MSVC の `_umul128` は定数式で使えないので、移植版の方が都合がよい
 - 生成スクリプトは `tools/gen_pow5_table.py` にまとめた。ヘッダの定数を標準出力に出し、照合用の全項目
-  （`tests/pow5_reference.inc`、669 行）を書き出す。補正値が 0〜3 に収まることもスクリプトの中で確かめる。
+  (`tests/pow5_reference.inc`、669 行)を書き出す。補正値が 0〜3 に収まることもスクリプトの中で確かめる。
   出力した定数は試作のものと一致した
-- テスト（`tests/number.cpp`）は、全 669 項目を実行時と `static_assert` の両方で照合する
+- テスト(`tests/number.cpp`)は、全 669 項目を実行時と `static_assert` の両方で照合する
 
 ### MSVC の定数評価の上限への備え
 
-試作の検証では 669 項目を 1 回の定数評価で照合していた。MSVC の定数評価の上限（`/constexpr:steps`）は
+試作の検証では 669 項目を 1 回の定数評価で照合していた。MSVC の定数評価の上限(`/constexpr:steps`)は
 GCC や clang よりずっと小さいと言われており、手元では確かめられない。そこで `static_assert` を
-32 項目ずつ（変数テンプレート 1 つにつき 1 回の定数評価）に分けた。
+32 項目ずつ(変数テンプレート 1 つにつき 1 回の定数評価)に分けた。
 
-代わりの目安として、clang の上限を `-fconstexpr-steps=30000`（既定は 1,048,576）まで下げても、
-`tests/number.cpp` の定数評価はすべて通った。浮動小数点のパースの `static_assert`（多倍長整数を使う
-20 桁超の入力を含む）も同じ条件で通る。
+代わりの目安として、clang の上限を `-fconstexpr-steps=30000`(既定は 1,048,576)まで下げても、
+`tests/number.cpp` の定数評価はすべて通った。浮動小数点のパースの `static_assert`(多倍長整数を使う
+20 桁超の入力を含む)も同じ条件で通る。
 
-## 2026-10-15: 設計判断 — 無限大と NaN は、構築と代入の時点で例外にする（作者と合意）
+## 2026-10-15 設計判断: 無限大と NaN は、構築と代入の時点で例外にする(作者と合意)
 
 ### 発端
 
-それまでは `json(INFINITY)` が字句 `"inf"` を持つ浮動小数点の値になっていた（`std::to_chars` の出力をそのまま
-保持していたため）。NaN なら `"nan"` か `"-nan"`。
+それまでは `json(INFINITY)` が字句 `"inf"` を持つ浮動小数点の値になっていた(`std::to_chars` の出力をそのまま
+保持していたため)。NaN なら `"nan"` か `"-nan"`。
 
-- RFC 8259 は、無限大や NaN のように数値の文法で表せない値を「許されない（not permitted）」と明記している
+- RFC 8259 は、無限大や NaN のように数値の文法で表せない値を「許されない(not permitted)」と明記している
 - json20 は値を字句で保持する。そのため「どんな字句で持つか」を決めないと、無限大や NaN を DOM に入れられない。
   値を `double` で持つ他のライブラリとは事情が違う
-- 自前のパース（次項）は JSON の文法どおりの字句しか読まないので、このままでは**作った値を読み出せなくなる**
+- 自前のパース(次項)は JSON の文法どおりの字句しか読まないので、このままでは**作った値を読み出せなくなる**
 
-### ほかのエコシステムでの扱い（調査）
+### ほかのエコシステムでの扱い(調査)
 
-実際の場面（科学計算や機械学習の欠損値・発散値、監視系のメトリクス）ではよく出てくるが、扱い方の標準はなく、
+実際の場面(科学計算や機械学習の欠損値・発散値、監視系のメトリクス)ではよく出てくるが、扱い方の標準はなく、
 流儀はばらばら。
 
 | 流儀 | 例 |
 |---|---|
-| 非標準のトークンで書く | Python の `json`（既定の `allow_nan=True` で `NaN` / `Infinity` / `-Infinity` を出力し、読み込みでも受け付ける）。JSON5 は仕様として認めている |
+| 非標準のトークンで書く | Python の `json`(既定の `allow_nan=True` で `NaN` / `Infinity` / `-Infinity` を出力し、読み込みでも受け付ける)。JSON5 は仕様として認めている |
 | null にする | JavaScript の `JSON.stringify`、Rust の serde_json |
-| 文字列にする | Protocol Buffers（proto3）の JSON マッピング（`"NaN"` / `"Infinity"` / `"-Infinity"`）、Prometheus の HTTP API（`"+Inf"` / `"NaN"`） |
-| エラーにする | Go の `encoding/json`（`json.Marshal` がエラーを返す）、Python で `allow_nan=False` のとき |
+| 文字列にする | Protocol Buffers(proto3)の JSON マッピング(`"NaN"` / `"Infinity"` / `"-Infinity"`)、Prometheus の HTTP API(`"+Inf"` / `"NaN"`) |
+| エラーにする | Go の `encoding/json`(`json.Marshal` がエラーを返す)、Python で `allow_nan=False` のとき |
 
 無限大や NaN を「数値」として保持する流儀は、非標準のトークンだけ。null や文字列で表す流儀では、JSON の型そのものが
-数値ではなくなる。どれが正しいかは、やり取りする相手（JavaScript か、protobuf か、Prometheus か）で決まり、
+数値ではなくなる。どれが正しいかは、やり取りする相手(JavaScript か、protobuf か、Prometheus か)で決まり、
 ライブラリには判断できない。
 
 ### 判断
 
-- **構築（`json(x)`）と代入（`j = x`）で、無限大と NaN は `std::invalid_argument` を投げる**。DOM の数値は常に有限で、
+- **構築(`json(x)`)と代入(`j = x`)で、無限大と NaN は `std::invalid_argument` を投げる**。DOM の数値は常に有限で、
   字句は常に JSON の数値の文法を満たす、という不変条件になる
-- 表現は利用者が明示して選ぶ。例えば `std::isfinite(x) ? json(x) : json()`（JavaScript 流）や
-  `std::isfinite(x) ? json(x) : json("Infinity")`（protobuf 流）
-- 代入は値を字句に変換してから入れ替えるので、例外が出ても代入先は変わらない（テストで確認）
+- 表現は利用者が明示して選ぶ。例えば `std::isfinite(x) ? json(x) : json()`(JavaScript 流)や
+  `std::isfinite(x) ? json(x) : json("Infinity")`(protobuf 流)
+- 代入は値を字句に変換してから入れ替えるので、例外が出ても代入先は変わらない(テストで確認)
 - `long double` も同じ扱い
 - **Python が出力した `NaN` などを読むパースのオプションは、今は入れない**。必要になったら、DOM での表現と
   あわせて別の判断として検討する
 
-理由: パースの側でも、無限大になる値（`1e400`）は範囲外として拒否している（次項）。構築とパースで
+理由: パースの側でも、無限大になる値(`1e400`)は範囲外として拒否している(次項)。構築とパースで
 「DOM に入る数値は常に有限」がそろう。「暗黙の変換をしない」「重複キーは既定で拒否」というこれまでの方針とも一貫する。
 
 ### 見送った案
 
-- **null に変換する**（JavaScript と同じ）: 数値が黙って null に変わり、kind も変わる。「暗黙の変換をしない」方針と
+- **null に変換する**(JavaScript と同じ): 数値が黙って null に変わり、kind も変わる。「暗黙の変換をしない」方針と
   正面から衝突し、情報も失われる
-- **独自の字句（`Infinity` / `NaN`）で保持する**: JSON5 や Python に近いが、RFC の範囲外の拡張になり、パーサにも
+- **独自の字句(`Infinity` / `NaN`)で保持する**: JSON5 や Python に近いが、RFC の範囲外の拡張になり、パーサにも
   読み取りのオプションが要る。厳格な方針と相容れない
 - **DOM には入れ、出力のときに失敗させる**: エラーが値を作った場所から遠い所で起きる。DOM の中の字句をどうするかも
   結局決めなければならない
 
 ### 実装の細部: `std::isfinite` を使わない
 
-判定は `-max <= x && x <= max`（`std::numeric_limits<T>::max()`）で行う。NaN はどの比較も偽になるので、これで
+判定は `-max <= x && x <= max`(`std::numeric_limits<T>::max()`)で行う。NaN はどの比較も偽になるので、これで
 無限大と NaN の両方を弾ける。`std::isfinite` を使わない理由は 2 つ。
 
-- C++20 では constexpr でない（constexpr になったのは C++23）。浮動小数点の変換は定数式で使えるようにしたい
-- `<cmath>` を include するだけで、翻訳単位ごとに約 0.16 秒かかる（GCC 14、-O0、`#include <yk/json20.hpp>` だけの
-  翻訳単位で 0.79 秒 → 0.95 秒）。浮動小数点の変換のコード全体を足しても、この増分より小さい
+- C++20 では constexpr でない(constexpr になったのは C++23)。浮動小数点の変換は定数式で使えるようにしたい
+- `<cmath>` を include するだけで、翻訳単位ごとに約 0.16 秒かかる(GCC 14、-O0、`#include <yk/json20.hpp>` だけの
+  翻訳単位で 0.79 秒 → 0.95 秒)。浮動小数点の変換のコード全体を足しても、この増分より小さい
 
-## 2026-10-15: 設計判断 — 浮動小数点のパースを自前で実装（fast_float の Eisel-Lemire を移植）
+## 2026-10-15 設計判断: 浮動小数点のパースを自前で実装(fast_float の Eisel-Lemire を移植)
 
-### 移植するか、論文から書き起こすか（作者判断: 移植）
+### 移植するか、論文から書き起こすか(作者判断: 移植)
 
-json20 のライセンスは Boost Software License 1.0（BSL）。fast_float（Apache 2.0 / MIT / BSL）も Dragonbox
-（Apache 2.0 with LLVM Exceptions / BSL）も BSL を選べるので、ライセンスの互換性に問題はない。
+json20 のライセンスは Boost Software License 1.0(BSL)。fast_float(Apache 2.0 / MIT / BSL)も Dragonbox
+(Apache 2.0 with LLVM Exceptions / BSL)も BSL を選べるので、ライセンスの互換性に問題はない。
 
 - **採用: 構造を追って移植し、著作権表示を入れる**。移植した部分の直前に、元の著作権表示と BSL で使っている旨を
-  コメントで残した（「Adapted from fast_float …, Copyright (c) 2021 The fast_float authors, used under the Boost
-  Software License 1.0」）。ライセンス本文は json20 の LICENSE と同じなので加えていない
-- 見送り: 論文から独自に書き起こす。アルゴリズムは著作権の対象ではないので表示は要らないが、境界条件（非正規化数、
-  偶数丸めの例外範囲など）を論文から自力で再構成することになり、誤りが入る危険が大きい。すでに元のコードを
+  コメントで残した(「Adapted from fast_float …, Copyright (c) 2021 The fast_float authors, used under the Boost
+  Software License 1.0」)。ライセンス本文は json20 の LICENSE と同じなので加えていない
+- 見送り: 論文から独自に書き起こす。アルゴリズムは著作権の対象ではないので表示は要らないが、境界条件(非正規化数、
+  偶数丸めの例外範囲など)を論文から自力で再構成することになり、誤りが入る危険が大きい。すでに元のコードを
   読んでいるので「独自」とも言い切りにくい
 
-移植したのは fast_float の `compute_float`（Eisel-Lemire の本体）だけ。字句の読み取り、20 桁超の入力の正確な比較、
+移植したのは fast_float の `compute_float`(Eisel-Lemire の本体)だけ。字句の読み取り、20 桁超の入力の正確な比較、
 5 の累乗の表は自前で書いた。
 
 ### 処理の流れ
 
-1. **字句の読み取り**: `-`? 数字列（`.` 数字列）?（`e`/`E` `+`/`-`? 数字列）? を読み、続けられない最初の文字で止まる
-   （`from_chars` と同じ。`"1.e5"` は `1` までを読む）。数字は翻訳済みのリテラル `'0'` からの差、`.` `e` `E` `+` `-` も
-   翻訳済みのリテラルと比べるので、charT と EBCDIC に依存しない。文法の検証（先頭の 0 など）はパーサの役目で、
-   変換では繰り返さない。指数は 10^6 で飽和させる（それより大きければどのみち範囲外）
+1. **字句の読み取り**: `-`? 数字列(`.` 数字列)?(`e`/`E` `+`/`-`? 数字列)? を読み、続けられない最初の文字で止まる
+   (`from_chars` と同じ。`"1.e5"` は `1` までを読む)。数字は翻訳済みのリテラル `'0'` からの差、`.` `e` `E` `+` `-` も
+   翻訳済みのリテラルと比べるので、charT と EBCDIC に依存しない。文法の検証(先頭の 0 など)はパーサの役目で、
+   変換では繰り返さない。指数は 10^6 で飽和させる(それより大きければどのみち範囲外)
 2. 先頭の有効数字 19 桁を 64 ビット整数 w に集め、値を w × 10^q とする
-3. **Eisel-Lemire**: w と 5^q の 128 ビット近似の積から、正しく丸めた結果を求める。Mushtak と Lemire（2023）の
-   証明により、**有効数字が 19 桁以内なら代替経路（fallback）は要らない**
+3. **Eisel-Lemire**: w と 5^q の 128 ビット近似の積から、正しく丸めた結果を求める。Mushtak と Lemire(2023)の
+   証明により、**有効数字が 19 桁以内なら代替経路(fallback)は要らない**
 4. **20 桁以上**: 捨てた桁があるので、w と w + 1 の両方で Eisel-Lemire を行う。結果が同じならそれが答え。違うときは、
    入力が 2 つの浮動小数点数のちょうど中間点の近くにあるので、**多倍長整数で正確に比較**して決める
 
 ### 20 桁以上の入力の正確な比較
 
-入力の全桁（最大 769 桁。それより後ろは「0 でない桁があったか」だけを覚える）を digits × 10^e として、
+入力の全桁(最大 769 桁。それより後ろは「0 でない桁があったか」だけを覚える)を digits × 10^e として、
 小さい方の候補 m × 2^k と次の数との中間点 (2m + 1) × 2^(k−1) と比べる。両辺に 5 と 2 の累乗を掛けて
 整数どうしの比較にする。中間点より大きければ切り上げ、ちょうど中間点なら偶数の方へ丸める。
 
-- 多倍長整数は 32 ビットの limb を 160 個（5,120 ビット）持つ固定長の配列。掛け算（`mul_add`）、5 の累乗との掛け算、
+- 多倍長整数は 32 ビットの limb を 160 個(5,120 ビット)持つ固定長の配列。掛け算(`mul_add`)、5 の累乗との掛け算、
   左シフト、比較だけを持つ。約 140 行
-- fast_float の同じ部分（`bigint.h` + `digit_comparison.h`、約 1,100 行）より遅いが、ここを通るのは 20 桁以上で、
+- fast_float の同じ部分(`bigint.h` + `digit_comparison.h`、約 1,100 行)より遅いが、ここを通るのは 20 桁以上で、
   しかも中間点の近くにある入力だけなので、速さより短さと検証しやすさを優先した
-- 769 桁は fast_float と同じ上限（double の中間点を正確に表すのに要る桁数の上限）。float は 114 桁
+- 769 桁は fast_float と同じ上限(double の中間点を正確に表すのに要る桁数の上限)。float は 114 桁
 
 ### Clinger の高速経路は入れない
 
-仮数が 2^53 以下で、10 の指数の絶対値が 22 以下なら、double の乗算か除算 1 回で正確に求まる（Clinger の高速経路）。
+仮数が 2^53 以下で、10 の指数の絶対値が 22 以下なら、double の乗算か除算 1 回で正確に求まる(Clinger の高速経路)。
 fast_float や標準ライブラリはこれを最初に試すが、json20 では入れなかった。
 
-- 浮動小数点の演算に頼るので、実行時の結果が浮動小数点の環境に左右される（丸めモードの変更、32 ビット x86 の
-  x87 による二重丸め）。Eisel-Lemire は整数の演算だけなので、**定数式と実行時で常に同じ結果**になる
+- 浮動小数点の演算に頼るので、実行時の結果が浮動小数点の環境に左右される(丸めモードの変更、32 ビット x86 の
+  x87 による二重丸め)。Eisel-Lemire は整数の演算だけなので、**定数式と実行時で常に同じ結果**になる
 - コードの分岐が減り、テストで確かめる経路も減る
-- 代償は速さ。乱数の double（最短表記、ほとんどが 17 桁前後）では高速経路の対象外なので差は出ないが、`1.5` のような
+- 代償は速さ。乱数の double(最短表記、ほとんどが 17 桁前後)では高速経路の対象外なので差は出ないが、`1.5` のような
   短い数値では差が出うる。必要になったら実測してから判断する
 
-### 範囲外の扱い（`std::from_chars` と同じ）
+### 範囲外の扱い(`std::from_chars` と同じ)
 
 | 入力 | 結果 |
 |---|---|
-| `1e400`、`1.7976931348623159e308` | 範囲外（無限大になる） |
-| `1e-400`、`2e-324`、`2.4703282292062327e-324` | 範囲外（0 でない値が 0 に丸まる） |
+| `1e400`、`1.7976931348623159e308` | 範囲外(無限大になる) |
+| `1e-400`、`2e-324`、`2.4703282292062327e-324` | 範囲外(0 でない値が 0 に丸まる) |
 | `3e-324`、`2.4703282292062328e-324` | 最小の非正規化数 |
 | `0e999`、`-0` | 0、−0 |
 
-範囲外は、これまでどおり `std::invalid_argument` を投げる（`try_as_floating_point` は `std::nullopt`）。
+範囲外は、これまでどおり `std::invalid_argument` を投げる(`try_as_floating_point` は `std::nullopt`)。
 境界の値は、手元の libstdc++ の `from_chars` で挙動を確かめてから合わせた。
 
 ### 対象の型と文字型
 
-- `float` と `double` を自前の実装にした。**すべての文字型（char / wchar_t / char8_t / char16_t / char32_t）で
-  浮動小数点を読めるようになった**（これまでは `char` だけ）
+- `float` と `double` を自前の実装にした。**すべての文字型(char / wchar_t / char8_t / char16_t / char32_t)で
+  浮動小数点を読めるようになった**(これまでは `char` だけ)
 - `long double` は、これまでどおり `char` 専用で `std::from_chars` を使う。libc++ は `long double` の `from_chars` を
-  削除（`= delete`）しているので、libc++ では `as_floating_point<long double>` がコンパイルできない。これは以前と同じ
+  削除(`= delete`)しているので、libc++ では `as_floating_point<long double>` がコンパイルできない。これは以前と同じ
 
-### 検証（`tests/number.cpp`）
+### 検証(`tests/number.cpp`)
 
-- `std::from_chars` との突き合わせ（double と float の両方、ビット単位で比較。範囲外の判定も含む）
-  - 境界の値の一覧（非正規化数の境界、最大値の前後、2^53 の前後、20 桁超など）
-  - 乱数の有限値 20 万個ずつを最短表記と 17 桁（float は 9 桁）の指数表記にして読む
-  - 乱数の 10 進文字列 20 万個（整数部 1〜30 桁、小数部 0〜30 桁、指数 −360〜330）
+- `std::from_chars` との突き合わせ(double と float の両方、ビット単位で比較。範囲外の判定も含む)
+  - 境界の値の一覧(非正規化数の境界、最大値の前後、2^53 の前後、20 桁超など)
+  - 乱数の有限値 20 万個ずつを最短表記と 17 桁(float は 9 桁)の指数表記にして読む
+  - 乱数の 10 進文字列 20 万個(整数部 1〜30 桁、小数部 0〜30 桁、指数 −360〜330)
   - **中間点ちょうど、そのわずかに上、わずかに下**: 2,000 個以上の double について、隣の数との中間点を正確な
-    10 進数（数百桁）で作って読む。正確な比較の経路を確実に通すためのテスト
+    10 進数(数百桁)で作って読む。正確な比較の経路を確実に通すためのテスト
 - 定数式: `static_assert(parse_float<double, char>("9007199254740993.00000000000000000001").first == 9007199254740994.0)`
   のように、多倍長整数の経路も定数式で通る
 
-### 計測（実行時、-O2、Intel Xeon 2.8 GHz）
+### 計測(実行時、-O2、Intel Xeon 2.8 GHz)
 
 乱数の有限な double 200 万個を `std::to_chars` の最短表記にした文字列を読む。1 個あたりの時間。
 
@@ -1196,20 +1196,20 @@ fast_float や標準ライブラリはこれを最初に試すが、json20 で�
 | Clang 21.1.8 + libc++ 21 | 146〜151 ns | 85〜99 ns |
 
 libstdc++ の `from_chars` より約 2 割遅く、libc++ の `from_chars` よりは速い。json20 の約 8 ns は
-5 の累乗の表の復元（A 方式）の費用。
+5 の累乗の表の復元(A 方式)の費用。
 
-## 2026-10-15: 設計判断 — 浮動小数点の出力を自前で実装（Dragonbox を移植、書式は `std::to_chars` と同じ）
+## 2026-10-15 設計判断: 浮動小数点の出力を自前で実装(Dragonbox を移植、書式は `std::to_chars` と同じ)
 
 ### 実装
 
-- Dragonbox の**簡易版**（作者が移植用に勧めているもの）の構造を追って移植し、著作権表示を入れた
-  （「Adapted from the simple implementation of Dragonbox …, Copyright 2024-2025 Junekey Jeon, Toby Bell, used under
-  the Boost Software License 1.0」）。移植の方針はパースと同じ（前項）
-- 10 の累乗の近似（cache）は Dragonbox 自身の表ではなく、共有の 5 の累乗の表（A）から導く
-  （`pow5::dragonbox_binary64` / `dragonbox_binary32`）。Dragonbox 自身の圧縮版の表は、復元した値が完全な表と
-  一致しない（Dragonbox には十分だが、Eisel-Lemire の証明は正確な値を前提にする）ので使わない
-- `float` と `double` を自前の実装にした。**すべての文字型で浮動小数点を書き出せるようになった**（これまでは `char`
-  だけ）。数字・`.`・`e`・`+`・`-` はリテラルを `YK_JSON20_WIDEN_STRING` で charT ごとに用意するので、EBCDIC でも
+- Dragonbox の**簡易版**(作者が移植用に勧めているもの)の構造を追って移植し、著作権表示を入れた
+  (「Adapted from the simple implementation of Dragonbox …, Copyright 2024-2025 Junekey Jeon, Toby Bell, used under
+  the Boost Software License 1.0」)。移植の方針はパースと同じ(前項)
+- 10 の累乗の近似(cache)は Dragonbox 自身の表ではなく、共有の 5 の累乗の表(A)から導く
+  (`pow5::dragonbox_binary64` / `dragonbox_binary32`)。Dragonbox 自身の圧縮版の表は、復元した値が完全な表と
+  一致しない(Dragonbox には十分だが、Eisel-Lemire の証明は正確な値を前提にする)ので使わない
+- `float` と `double` を自前の実装にした。**すべての文字型で浮動小数点を書き出せるようになった**(これまでは `char`
+  だけ)。数字・`.`・`e`・`+`・`-` はリテラルを `YK_JSON20_WIDEN_STRING` で charT ごとに用意するので、EBCDIC でも
   コンパイラが翻訳する
 - `long double` は、これまでどおり `char` 専用で `std::to_chars` を使う
 
@@ -1217,9 +1217,9 @@ libstdc++ の `from_chars` より約 2 割遅く、libc++ の `from_chars` よ�
 
 既存の出力を変えないため。テストで `std::to_chars` と大量に突き合わせて検証できる利点もある。
 
-- 往復できる最短の桁（Dragonbox の出力から末尾の 0 を除く）
+- 往復できる最短の桁(Dragonbox の出力から末尾の 0 を除く)
 - 固定小数点表記と指数表記の**短い方**。同じ長さなら固定小数点表記
-- 指数は符号つきで 2 桁以上（`1e+05`、`5e-324`、`1e+100`）
+- 指数は符号つきで 2 桁以上(`1e+05`、`5e-324`、`1e+100`)
 - 0 は `0`、−0 は `-0`
 
 ### 発見: 固定小数点表記では、最短の桁ではなく「正確な整数」が出る
@@ -1232,28 +1232,28 @@ x = 772324892374931968.0
 std::to_chars:            772324892374931968
 ```
 
-規格（[charconv.to.chars]）は、「往復できる表現のうち文字数が最も少ないもの。複数あれば値との差が最も小さいもの」
+規格([charconv.to.chars])は、「往復できる表現のうち文字数が最も少ないもの。複数あれば値との差が最も小さいもの」
 を求めている。固定小数点表記で小数部がない場合、文字数は値の大きさだけで決まるので、同じ長さの候補の中で値に
-最も近いもの、つまり**値そのもの**（2^53 以上の double は整数）が選ばれる。最短の桁 `772324892374932` を
+最も近いもの、つまり**値そのもの**(2^53 以上の double は整数)が選ばれる。最短の桁 `772324892374932` を
 0 で埋めた `772324892374932000` も往復はできるが、差が 0 ではないので規格の要件を満たさない。
 
 この場合に限り、浮動小数点数のビットから正確な整数を作って書き出すようにした。固定小数点表記が選ばれるのは
 指数表記より短いときだけなので、対象は double で 10^22 未満、float で 10^14 未満に限られる。10^9 進の
-limb 3 つで足りる。GCC（libstdc++）と Clang（libc++）のどちらの `std::to_chars` も同じ出力だった。
+limb 3 つで足りる。GCC(libstdc++)と Clang(libc++)のどちらの `std::to_chars` も同じ出力だった。
 
 ### 高速化: 文字列への追加と、1 桁ずつの割り算をやめた
 
-最初の実装は、`std::to_chars` と `std::string` の構築の合計（約 90 ns）に対して 130〜160 ns かかった
-（GCC 14、乱数の double）。callgrind で命令数を見ると、`format_float` の約 1 億 2,000 万命令のうち約 9,000 万命令が
-桁の処理だった（`/ 10` で桁数を数えるループと、`% 10` で 1 桁ずつ書くループ）。Dragonbox の本体は約 3,200 万命令。
+最初の実装は、`std::to_chars` と `std::string` の構築の合計(約 90 ns)に対して 130〜160 ns かかった
+(GCC 14、乱数の double)。callgrind で命令数を見ると、`format_float` の約 1 億 2,000 万命令のうち約 9,000 万命令が
+桁の処理だった(`/ 10` で桁数を数えるループと、`% 10` で 1 桁ずつ書くループ)。Dragonbox の本体は約 3,200 万命令。
 
 - `std::string` に 1 文字ずつ `push_back` / `append` するのをやめ、ローカルの配列に組み立ててから 1 回で文字列にした
-- 整数の出力で使っていた 2 桁ずつの表（`"0001…99"`）を `write_digits` として共有し、桁を 2 つずつ書くようにした。
+- 整数の出力で使っていた 2 桁ずつの表(`"0001…99"`)を `write_digits` として共有し、桁を 2 つずつ書くようにした。
   桁数は書いた結果から分かるので、数えるループも消えた
 
 結果は下の計測のとおり、`std::to_chars` と文字列の構築の合計とほぼ同じになった。
 
-### 計測（実行時、-O2、Intel Xeon 2.8 GHz）
+### 計測(実行時、-O2、Intel Xeon 2.8 GHz)
 
 乱数の有限な double 200 万個を書き出す。1 個あたりの時間。json20 は `std::basic_string` を返すので、
 `std::to_chars` の結果から `std::string` を作る時間とも比べる。
@@ -1263,51 +1263,51 @@ limb 3 つで足りる。GCC（libstdc++）と Clang（libc++）のどちらの 
 | GCC 14.2 + libstdc++ 14 | 67〜82 ns | 91〜115 ns | 104〜124 ns |
 | Clang 21.1.8 + libc++ 21 | 56〜62 ns | 72〜93 ns | 86〜108 ns |
 
-内訳: Dragonbox の本体（`to_decimal`）が約 27 ns、そのうち表の復元が約 8 ns。計測のばらつきが大きいので、
-範囲で示した（4 回の計測の最小と最大）。
+内訳: Dragonbox の本体(`to_decimal`)が約 27 ns、そのうち表の復元が約 8 ns。計測のばらつきが大きいので、
+範囲で示した(4 回の計測の最小と最大)。
 
-### コンパイル時間（GCC 14.2 / Clang 18 + libstdc++ 14、-O0、11 回の中央値）
+### コンパイル時間(GCC 14.2 / Clang 18 + libstdc++ 14、-O0、11 回の中央値)
 
 | 翻訳単位 | GCC 前 → 後 | Clang 前 → 後 |
 |---|---|---|
 | `#include <yk/json20.hpp>` だけ | 0.83 → 0.82 秒 | 0.91 → 0.98 秒 |
 | `json(1.5)` を作り、`"2.5"` を読む | 2.32 → 2.42 秒 | 1.85 → 1.94 秒 |
 
-「前」はこの作業の前（`std::from_chars` / `std::to_chars` を使う版）。include するだけなら増分はほぼなく
-（表は A 方式で 47 行、`<cmath>` も include しない）、浮動小数点の変換を実際に使う翻訳単位で約 0.1 秒増える。
-`bench/compile_time/measure.sh`（浮動小数点を使わない翻訳単位）では、前後の差は計測のばらつき（±0.1 秒）の範囲だった。
+「前」はこの作業の前(`std::from_chars` / `std::to_chars` を使う版)。include するだけなら増分はほぼなく
+(表は A 方式で 47 行、`<cmath>` も include しない)、浮動小数点の変換を実際に使う翻訳単位で約 0.1 秒増える。
+`bench/compile_time/measure.sh`(浮動小数点を使わない翻訳単位)では、前後の差は計測のばらつき(±0.1 秒)の範囲だった。
 
-### EBCDIC で浮動小数点が動くようになった（PR #1 の Codex の指摘への回答）
+### EBCDIC で浮動小数点が動くようになった(PR #1 の Codex の指摘への回答)
 
 PR #1 で Codex が指摘した「EBCDIC では浮動小数点の読み出しが例外になる」問題は、これで解決した。
-`tests/ebcdic.cpp`（`-fexec-charset=IBM1047`）に、浮動小数点の読み出しと書き出しの `static_assert` を加えた。
-書き出した文字列の `.` が 0x4B、`e` が 0x85、`+` が 0x4E（いずれも IBM1047）であることまで確かめている。
-修正前は `std::from_chars` / `std::to_chars` が constexpr でなく（C++20）、ASCII を前提にしているので、
+`tests/ebcdic.cpp`(`-fexec-charset=IBM1047`)に、浮動小数点の読み出しと書き出しの `static_assert` を加えた。
+書き出した文字列の `.` が 0x4B、`e` が 0x85、`+` が 0x4E(いずれも IBM1047)であることまで確かめている。
+修正前は `std::from_chars` / `std::to_chars` が constexpr でなく(C++20)、ASCII を前提にしているので、
 定数式でも実行時でも動かなかった。
 
 ### コンパイラ挙動メモ
 
-- **Clang（18 / 21）+ libstdc++ 14**: `std::basic_string<charT>(pointer, length)` のコンストラクタが、定数式で
+- **Clang(18 / 21)+ libstdc++ 14**: `std::basic_string<charT>(pointer, length)` のコンストラクタが、定数式で
   「`_M_construct<const charT *>` が未定義」として評価できないことがある。最小の再現コードでは char を含む
   すべての文字型で失敗し、json20 のテストでは char8_t でだけ表に出た。GCC と libc++ では起きない。
-  定数式の中だけ `append` で組み立てるようにした（`std::is_constant_evaluated()`）。実行時に `append` を使うと
+  定数式の中だけ `append` で組み立てるようにした(`std::is_constant_evaluated()`)。実行時に `append` を使うと
   GCC で約 12 ns 遅くなったので、実行時はコンストラクタのまま
 - **MSVC は未確認**。CI で初めてコンパイルされる。定数評価の上限については、5 の累乗の表の項を参照
 
-## 2026-10-15: 修正 — 真偽値の変換を、すべての文字型に対応させた
+## 2026-10-15 修正: 真偽値の変換を、すべての文字型に対応させた
 
-README の例を書いていて見つけた。整数（PR #1）と浮動小数点（PR #3）は charT ごとの変換になったが、真偽値の
+README の例を書いていて見つけた。整数(PR #1)と浮動小数点(PR #3)は charT ごとの変換になったが、真偽値の
 serializer / deserializer は `char` にしか特殊化されていなかった。そのため `wjson(true)` も、
-`u16json_parser::parse(u"true").as_boolean()` もコンパイルできなかった（パースして DOM を作ることはできる。
-字句を保持するだけで、変換しないため）。
+`u16json_parser::parse(u"true").as_boolean()` もコンパイルできなかった(パースして DOM を作ることはできる。
+字句を保持するだけで、変換しないため)。
 
 - `"true"` / `"false"` を `YK_JSON20_WIDEN_STRING` で charT ごとに用意し、`deserializer<bool, charT>` と
   `serializer<bool, charT>` にした。リテラルなので EBCDIC でもコンパイラが翻訳する
 - 文字列を作るときは `std::basic_string<charT>(first, last)` を使う。`basic_string_view` からのコンストラクタは、
-  Clang 18 + libstdc++ 14 で char8_t のときに定数式で評価できなかった（「`_M_construct<const char8_t *>` が未定義」）。
+  Clang 18 + libstdc++ 14 で char8_t のときに定数式で評価できなかった(「`_M_construct<const char8_t *>` が未定義」)。
   ポインタの範囲を取るコンストラクタなら評価できる
 
-## 2026-10-15: 修正 — `bool` を代入すると、真偽値ではなく符号なし整数になっていた
+## 2026-10-15 修正: `bool` を代入すると、真偽値ではなく符号なし整数になっていた
 
 前項のテストを書いていて見つけた。`char` でも起きる。
 
@@ -1316,7 +1316,7 @@ json a = json::array();
 a = true;   // 修正前: 種類は number_unsigned_integer、字句は "true"
 ```
 
-原因: `bool` は `std::unsigned_integral` を満たす（整数型で、符号付きではない）。構築には `basic_json(bool)` という
+原因: `bool` は `std::unsigned_integral` を満たす(整数型で、符号付きではない)。構築には `basic_json(bool)` という
 テンプレートでない完全一致のコンストラクタがあるので正しく真偽値になるが、代入には `bool` 用の `operator=` がなく、
 `template<std::unsigned_integral UInt> operator=(UInt)` が選ばれていた。字句は bool の serializer が作るので
 `"true"` になり、「種類は数値、字句は true」という不整合な値ができていた。`as_unsigned_integer` で読むと例外になる。
@@ -1326,33 +1326,33 @@ a = true;   // 修正前: 種類は number_unsigned_integer、字句は "true"
 見送った案: 整数用のテンプレートの制約に `!std::same_as<T, bool>` を足す。これでも直るが、代入とコンストラクタで
 書き方がそろわなくなる。`operator=(bool)` ならコンストラクタと同じ形になる。
 
-## 2026-10-15: 修正 — `json(nullptr)` をコンパイルエラーにした（null は `json()`）
+## 2026-10-15 修正: `json(nullptr)` をコンパイルエラーにした(null は `json()`)
 
 README の例を書いていて見つけた。C++20 では `json(nullptr)` も `j = nullptr` もコンパイルでき、実行時に
-異常終了していた（libstdc++ では「basic_string: construction from null is not valid」の例外、libc++ では
-セグメンテーション違反）。
+異常終了していた(libstdc++ では「basic_string: construction from null is not valid」の例外、libc++ では
+セグメンテーション違反)。
 
 原因: 文字列のコンストラクタは「`basic_string_view<charT>` に変換できる型」を受け付ける。C++20 では
 `nullptr` が `const char*` を経由して `std::string_view` に暗黙に変換できるので、`nullptr` が文字列として
 扱われ、null ポインタから文字列を作っていた。C++23 では `basic_string_view(nullptr_t)` が削除されたので、
 同じコードがコンパイルエラーになる。CI は C++23 と C++26 しか試していなかったので、表に出なかった。
 
-判断: `basic_json(std::nullptr_t)` と `operator=(std::nullptr_t)` を削除（`= delete`）した。C++20 でも
+判断: `basic_json(std::nullptr_t)` と `operator=(std::nullptr_t)` を削除(`= delete`)した。C++20 でも
 C++23 と同じくコンパイルエラーになる。null は今までどおり `json()` で作る。
 
-見送った案: `json(nullptr)` を null にする（nlohmann/json と同じ）。書きやすいが、null の書き方が 2 つになり、
+見送った案: `json(nullptr)` を null にする(nlohmann/json と同じ)。書きやすいが、null の書き方が 2 つになり、
 C++ のポインタと JSON の null を暗黙に結びつけることになる。「暗黙の変換はしない」方針に合わせて、まずは
-エラーにした。後から null を作る書き方として許すことはできる（逆に、許したものを後から禁止すると破壊的変更になる）。
+エラーにした。後から null を作る書き方として許すことはできる(逆に、許したものを後から禁止すると破壊的変更になる)。
 
-あわせて、ライブラリの最低要件である C++20 でテストする翻訳単位（`tests/cxx20.cpp`）を加えた。他のテストは
-C++23 の機能（`<print>` など）を使っているので、CI の行列（C++23 / C++26）とは別に、この翻訳単位だけ常に C++20 で
+あわせて、ライブラリの最低要件である C++20 でテストする翻訳単位(`tests/cxx20.cpp`)を加えた。他のテストは
+C++23 の機能(`<print>` など)を使っているので、CI の行列(C++23 / C++26)とは別に、この翻訳単位だけ常に C++20 で
 ビルドする。C++20 でヘッダがコンパイルできることも、これで CI で確かめられる。
 
-## 2026-11-05: 設計判断 — IEEE 754 でない浮動小数点型は、標準ライブラリの変換に任せる（作者判断）
+## 2026-11-05 設計判断: IEEE 754 でない浮動小数点型は、標準ライブラリの変換に任せる(作者判断)
 
 ### 発端: 自前の変換は IEEE 754 の形式を前提にしていた
 
-浮動小数点の変換（PR #3）は、`float` が IEEE 754 binary32、`double` が binary64 であることを前提にしている。
+浮動小数点の変換(PR #3)は、`float` が IEEE 754 binary32、`double` が binary64 であることを前提にしている。
 
 - `ieee754<float>` / `ieee754<double>` が、基数 2、仮数部と指数部のビット数、指数のバイアス、無限大の指数を決め打ちしている
 - パースは結果のビット列を組み立てて `std::bit_cast` で浮動小数点数にし、出力はその逆を行う
@@ -1360,40 +1360,40 @@ C++23 の機能（`<print>` など）を使っているので、CI の行列（C
 
 それでも、型が `float` か `double` であれば、どの形式でも自前の変換を使っていた。形式が違うときの結果は 2 通り。
 
-- **大きさが違う**（avr-gcc の 32 ビットの `double` など）: `std::bit_cast` がコンパイルエラーになる。分かりにくいが、少なくとも誤りは起きない
-- **大きさが同じで形式が違う**: コンパイルでき、黙って誤った値になる。現実にあり得るのは、z/OS の IBM 16 進浮動小数点（HFP）。
+- **大きさが違う**(avr-gcc の 32 ビットの `double` など): `std::bit_cast` がコンパイルエラーになる。分かりにくいが、少なくとも誤りは起きない
+- **大きさが同じで形式が違う**: コンパイルでき、黙って誤った値になる。現実にあり得るのは、z/OS の IBM 16 進浮動小数点(HFP)。
   64 ビットの `double` のまま、基数が 16 になる
 
 json20 が対応をうたう EBCDIC の実際の環境は主に z/OS なので、後者は無視できない。ただし、現在の z/OS のコンパイラが
 既定でどちらの形式を使うかは確かめていない。
 
-なお、バイト順には依存しない（整数への `bit_cast` はバイト順と無関係で、z/OS のようなビッグエンディアンでも正しい）。
-丸めモードや x87 の拡張精度にも依存しない（整数の演算だけを使う）。
+なお、バイト順には依存しない(整数への `bit_cast` はバイト順と無関係で、z/OS のようなビッグエンディアンでも正しい)。
+丸めモードや x87 の拡張精度にも依存しない(整数の演算だけを使う)。
 
 ### 判断
 
 - `detail::number::ieee754_binary<T>`: 自前の変換が前提とする形式かどうか。`float` / `double` で、
   `std::numeric_limits<T>` の `is_iec559`、`radix`、`digits`、`min_exponent`、`max_exponent` と大きさが
   binary32 / binary64 に一致すること。`parse_float` と `format_float` はこれを制約に持つ
-- `detail::number::self_converted<T>`: json20 が自分で変換する型（すべての文字型、定数式で動く）。今は
+- `detail::number::self_converted<T>`: json20 が自分で変換する型(すべての文字型、定数式で動く)。今は
   `ieee754_binary<T>` と同じ
-- それ以外の浮動小数点型は、`long double` と同じく `std::from_chars` / `std::to_chars` を使う（`char` 専用、定数式では
-  使えない）。実際の EBCDIC 環境なら、標準ライブラリはその環境の文字コードを扱えるはず（以前に問題になったのは、
-  `-fexec-charset` でリテラルだけを EBCDIC にした模擬環境で、実行時ライブラリが ASCII だったため）
+- それ以外の浮動小数点型は、`long double` と同じく `std::from_chars` / `std::to_chars` を使う(`char` 専用、定数式では
+  使えない)。実際の EBCDIC 環境なら、標準ライブラリはその環境の文字コードを扱えるはず(以前に問題になったのは、
+  `-fexec-charset` でリテラルだけを EBCDIC にした模擬環境で、実行時ライブラリが ASCII だったため)
 
-この結果、C++23 の拡張浮動小数点型（`std::float16_t`、`std::float64_t` など）も標準ライブラリの経路で扱えるようになった。
+この結果、C++23 の拡張浮動小数点型(`std::float16_t`、`std::float64_t` など)も標準ライブラリの経路で扱えるようになった。
 これまでは serializer がなく、コンパイルできなかった。GCC 14 の libstdc++ は、これらの `to_chars` / `from_chars` を
 提供している。`std::float64_t` は形式としては binary64 だが、`double` とは別の型なので、今は標準ライブラリの経路に入る。
-テストでは、これを使って標準ライブラリの経路を CI で動かしている（`__STDCPP_FLOAT64_T__` が定義される環境だけ。手元で確かめた範囲では GCC 14 は定義し、Clang 18 は定義しない）。
+テストでは、これを使って標準ライブラリの経路を CI で動かしている(`__STDCPP_FLOAT64_T__` が定義される環境だけ。手元で確かめた範囲では GCC 14 は定義し、Clang 18 は定義しない)。
 
 ### 見送った案
 
-- **非 IEEE ではコンパイルエラーにする**（`static_assert`）: 誤った値は防げるが、その環境で json20 が浮動小数点を
+- **非 IEEE ではコンパイルエラーにする**(`static_assert`): 誤った値は防げるが、その環境で json20 が浮動小数点を
   まったく扱えなくなる。標準ライブラリに任せれば、少なくとも正しく動く
-- **形式に依存しないアルゴリズムを今すぐ実装する**: 基数と精度を引数に取る多倍長整数のアルゴリズム（出力は
-  Steele と White の Dragon4、パースは Clinger の AlgorithmM / R、いずれも 1990）なら、`std::numeric_limits` の値だけで
+- **形式に依存しないアルゴリズムを今すぐ実装する**: 基数と精度を引数に取る多倍長整数のアルゴリズム(出力は
+  Steele と White の Dragon4、パースは Clinger の AlgorithmM / R、いずれも 1990)なら、`std::numeric_limits` の値だけで
   どの形式も扱える。浮動小数点数の分解と組み立ても、基数の累乗を掛けるのは誤差なく行えるので、`bit_cast` も
-  `<cmath>` も使わずに書ける（C++20 の定数式でも浮動小数点の演算はできる）。ただし 1 回の変換に多倍長整数の演算が
+  `<cmath>` も使わずに書ける(C++20 の定数式でも浮動小数点の演算はできる)。ただし 1 回の変換に多倍長整数の演算が
   要り、今の 70〜100 ns に対してマイクロ秒単位になる。また CI には IEEE の環境しかないので、実際に必要になるまでは
   見送った
 
@@ -1401,43 +1401,43 @@ json20 が対応をうたう EBCDIC の実際の環境は主に z/OS なので�
 
 `self_converted` を広げるだけで済むように、判定を 2 つに分けてある。
 
-- 汎用の経路（Dragon4 / Clinger）を実装したら、`self_converted<T>` を「`ieee754_binary<T>` または汎用の経路で
+- 汎用の経路(Dragon4 / Clinger)を実装したら、`self_converted<T>` を「`ieee754_binary<T>` または汎用の経路で
   扱える型」に広げる
 - serializer / deserializer の中で、`ieee754_binary<T>` なら今の高速な経路、そうでなければ汎用の経路を
   `if constexpr` で選ぶ
-- 標準ライブラリの経路は、`self_converted` でない型（汎用の経路も扱えない型）に自動的に狭まる
+- 標準ライブラリの経路は、`self_converted` でない型(汎用の経路も扱えない型)に自動的に狭まる
 - 汎用の経路は、IEEE の `double` にも適用して高速な経路とビット単位で突き合わせることで、IEEE しかない CI でも検証できる
 - `std::float32_t` / `std::float64_t` を高速な経路に入れるのも、`ieee754` の特殊化と `ieee754_binary` の型の列挙を
   足すだけで済む
 
-## 2026-11-05: 設計判断 — ヘッダを分割し、単一ヘッダは生成して配布する（作者判断）
+## 2026-11-05 設計判断: ヘッダを分割し、単一ヘッダは生成して配布する(作者判断)
 
-`include/yk/json20.hpp` は 2,350 行を超え、数値変換の内部（5 の累乗の表、Eisel-Lemire、Dragonbox）と
+`include/yk/json20.hpp` は 2,350 行を超え、数値変換の内部(5 の累乗の表、Eisel-Lemire、Dragonbox)と
 DOM・パーサが 1 つのファイルに同居していた。作者の方針は「ヘッダを分割したいが、単一ヘッダの提供は続けたい」。
 
-### 判断（作者と合意）
+### 判断(作者と合意)
 
 - ソースは `include/yk/json20/` 以下に分割する。`include/yk/json20.hpp` は、公開の部品を include するだけの
   入口になる。利用者の `#include <yk/json20.hpp>` は変わらない
 - 単一ヘッダは `tools/amalgamate.py` で生成し、`single_include/yk/json20.hpp` としてリポジトリに置く
-  （nlohmann/json と同じ形）。1 ファイルをコピーするだけで使える
-- CI で、生成物が最新であること（`--check`）と、生成物だけでテストが通ること（`-DJSON20_SINGLE_INCLUDE=ON`）を
-  確かめる。後者は GCC 14 の 1 ジョブだけにした（中身は分割版と同じコードなので、全コンパイラで繰り返す必要はない）
-- 分割は、PR #8 のマージを待ってから行う（大きな移動とほかの変更が衝突しないように）
+  (nlohmann/json と同じ形)。1 ファイルをコピーするだけで使える
+- CI で、生成物が最新であること(`--check`)と、生成物だけでテストが通ること(`-DJSON20_SINGLE_INCLUDE=ON`)を
+  確かめる。後者は GCC 14 の 1 ジョブだけにした(中身は分割版と同じコードなので、全コンパイラで繰り返す必要はない)
+- 分割は、PR #8 のマージを待ってから行う(大きな移動とほかの変更が衝突しないように)
 
 見送った案: 入口のヘッダだけを用意し、単一ファイルは生成しない。1 ファイルをコピーするだけで使える、という
 これまでの手軽さがなくなる。
 
 ### 分け方
 
-既存の区切り（コメントの見出し）に沿って、コードを書き換えずに切り出した。切り出しはスクリプトで行い、
-元のファイルと行の集合が一致すること（名前空間の開閉と空行を除く）を確かめた。
+既存の区切り(コメントの見出し)に沿って、コードを書き換えずに切り出した。切り出しはスクリプトで行い、
+元のファイルと行の集合が一致すること(名前空間の開閉と空行を除く)を確かめた。
 
 | ファイル | 中身 |
 |---|---|
 | `detail/fixed_string.hpp` | `basic_fixed_string`、`select_str`、`YK_JSON20_WIDEN_STRING` |
 | `detail/number/u128.hpp` | 128 ビットの演算 |
-| `detail/number/pow5.hpp` | 圧縮した 5 の累乗の表（A 方式）と、そこから各ライブラリの表を導く関数 |
+| `detail/number/pow5.hpp` | 圧縮した 5 の累乗の表(A 方式)と、そこから各ライブラリの表を導く関数 |
 | `detail/number/ieee754.hpp` | IEEE 754 の形式の定数、`ieee754_binary`、`self_converted` |
 | `detail/number/parse_float.hpp` | Eisel-Lemire、多倍長整数による正確な比較、`parse_float` |
 | `detail/number/dragonbox.hpp` | Dragonbox |
@@ -1448,56 +1448,56 @@ DOM・パーサが 1 つのファイルに同居していた。作者の方針�
 | `parser.hpp` | `basic_json_parser` |
 | `checked_string.hpp` | `basic_noop_visitor`、`basic_checked_string` |
 
-- 各ファイルは、それだけを include してもコンパイルできる（自己完結）。必要な標準ヘッダは、ファイルごとに
+- 各ファイルは、それだけを include してもコンパイルできる(自己完結)。必要な標準ヘッダは、ファイルごとに
   使っている名前から決めた。CMake の `yk_json20_self_contained` が、ファイルごとに「2 回 include するだけの翻訳単位」を
-  C++20 でコンパイルして確かめる（インクルードガードの確認も兼ねる）。手元では GCC 14、Clang 18 + libstdc++、
+  C++20 でコンパイルして確かめる(インクルードガードの確認も兼ねる)。手元では GCC 14、Clang 18 + libstdc++、
   Clang 18 + libc++ で通った
 - 部品どうしの include は `<yk/json20/...>` の形で書く。生成スクリプトは、この形の include を見つけて中身に置き換える
 
 ### 生成スクリプト
 
 - 入口から順に、`#include <yk/json20/...>` を中身に置き換える。各ファイルは最初に出会ったところで 1 回だけ展開する
-  （依存先が先に来る）
+  (依存先が先に来る)
 - 標準ヘッダの include は、最初の 1 回だけ残す
 - 部品のインクルードガードは残す。単一ヘッダと分割版を同じ翻訳単位で混ぜても、二重定義にならない
-- `#if` の中にある include は、条件ごと残さないと意味が変わるので、スクリプトの中で禁止している（今は 1 つもない）
-- 展開の順序は元のファイルと異なる（各部品の依存先が先に来るため）が、コードの行の集合は元のファイルと一致する
+- `#if` の中にある include は、条件ごと残さないと意味が変わるので、スクリプトの中で禁止している(今は 1 つもない)
+- 展開の順序は元のファイルと異なる(各部品の依存先が先に来るため)が、コードの行の集合は元のファイルと一致する
 
-### 計測（GCC 14、-O0、`#include <yk/json20.hpp>` だけの翻訳単位、15 回を交互に計測した中央値）
+### 計測(GCC 14、-O0、`#include <yk/json20.hpp>` だけの翻訳単位、15 回を交互に計測した中央値)
 
 | 版 | 時間 |
 |---|---|
 | 分割前の 1 ファイル | 0.78 秒 |
-| 分割版（`include/`） | 0.81 秒 |
-| 生成した単一ヘッダ（`single_include/`） | 0.81 秒 |
+| 分割版(`include/`) | 0.81 秒 |
+| 生成した単一ヘッダ(`single_include/`) | 0.81 秒 |
 
 差は 0.03 秒で、計測のばらつきの範囲。ファイルを開く回数が増えても、コンパイル時間はほとんど変わらない。
 
-### 追記: 分割後、EBCDIC + C++26 の CI が失敗した（`<iterator>`）
+### 追記: 分割後、EBCDIC + C++26 の CI が失敗した(`<iterator>`)
 
 分割の PR の CI で、GCC 14 / C++26 の 2 ジョブが EBCDIC のテストで失敗した。前に記録した
-「libstdc++ 14 は C++26 モードで EBCDIC に対応していない」問題と同じ（`<charconv>` の表の添字が -16 になる）。
+「libstdc++ 14 は C++26 モードで EBCDIC に対応していない」問題と同じ(`<charconv>` の表の添字が -16 になる)。
 
-原因: 分割のときに、`std::begin` / `std::end` を使う 2 つの部品（`conversion.hpp`、`detail/number/format_float.hpp`）へ
+原因: 分割のときに、`std::begin` / `std::end` を使う 2 つの部品(`conversion.hpp`、`detail/number/format_float.hpp`)へ
 `<iterator>` を加えていた。手元で調べると、GCC 14 の `-std=gnu++26 -fexec-charset=IBM1047` では
-`<iterator>` と `<memory>` も、単独で include しただけで失敗する（前の記録では `<format>`、`<ranges>`、`<locale>` だけを
-挙げていた）。分割前のヘッダは `<iterator>` を include していなかった。
+`<iterator>` と `<memory>` も、単独で include しただけで失敗する(前の記録では `<format>`、`<ranges>`、`<locale>` だけを
+挙げていた)。分割前のヘッダは `<iterator>` を include していなかった。
 
 修正: `<iterator>` を外した。`std::begin` / `std::end` は `<string>` でも宣言されることが規格で決まっているので、
 その旨を include の横にコメントで残した。手元の自己完結の確認は C++20 で行っていたので、この失敗は CI の
 EBCDIC + C++26 のジョブで初めて見つかった。
 
-### 追記: 単一ヘッダはコミットせず、CI で生成する（作者判断）
+### 追記: 単一ヘッダはコミットせず、CI で生成する(作者判断)
 
 PR の作業中に方針を変えた。分割したヘッダを書くことに集中し、1 ファイルにまとめるかどうかは利用者に任せる。
 
-- `single_include/` はリポジトリから外した（`.gitignore` に追加）
-- `tools/amalgamate.py` は、利用者が自分で 1 ファイルを作るための道具として残す（`python3 tools/amalgamate.py [出力先]`）。
+- `single_include/` はリポジトリから外した(`.gitignore` に追加)
+- `tools/amalgamate.py` は、利用者が自分で 1 ファイルを作るための道具として残す(`python3 tools/amalgamate.py [出力先]`)。
   最新かどうかを確かめる `--check` は不要になったので削除した
 - `-DJSON20_SINGLE_INCLUDE=ON` のときは、CMake が構成時に生成スクリプトを実行し、ビルドディレクトリに 1 ファイルを作る。
-  部品やスクリプトが変わると再構成されて作り直されるので、古い生成物が使われることはない（Python 3 が要るのはこのときだけ）
+  部品やスクリプトが変わると再構成されて作り直されるので、古い生成物が使われることはない(Python 3 が要るのはこのときだけ)
 - CI の「Single header」ジョブは、生成した 1 ファイルだけでテストを通し、そのファイルを成果物
-  （`json20-single-header`）として残す
+  (`json20-single-header`)として残す
 
 理由: 生成物をコミットすると、ヘッダを変えるたびに差分が 2 重になり、生成し直す手間と、それを確かめる CI が要る。
 1 ファイルが欲しい利用者には、スクリプトか CI の成果物で足りる。将来リリースを作るときは、生成物を GitHub の
@@ -1505,26 +1505,26 @@ PR の作業中に方針を変えた。分割したヘッダを書くことに�
 
 検討して見送ったこと:
 
-- **本物のプリプロセッサ（`cpp -E` や GCC の `-fdirectives-only`）でまとめる**: プリプロセッサは、まとめる環境に合わせて
+- **本物のプリプロセッサ(`cpp -E` や GCC の `-fdirectives-only`)でまとめる**: プリプロセッサは、まとめる環境に合わせて
   すべてを解決してしまう。`u128.hpp` の `#if defined(__SIZEOF_INT128__)` が GCC で決まってしまい、MSVC では
   動かない 1 ファイルになる。標準ヘッダの中身も、まとめた環境のものが展開される。`-fdirectives-only` ならマクロは
   展開されないが、前の 2 つの問題は残る。1 ファイルにまとめる処理は、環境に依存しない文字列の連結でなければならない
-- **既存の道具（quom など）を使う**: pip のパッケージへの依存が、CI と、自分でまとめる利用者の両方に増える。
+- **既存の道具(quom など)を使う**: pip のパッケージへの依存が、CI と、自分でまとめる利用者の両方に増える。
   json20 に必要なのは「`<yk/json20/...>` を 1 回ずつ展開し、標準ヘッダの include を 1 回だけ残し、`#if` の中の include を
-  拒否する」ことだけで、自前のスクリプト（約 90 行、依存なし）で足りる。出力は CI でテストしている。インクルードガードの
+  拒否する」ことだけで、自前のスクリプト(約 90 行、依存なし)で足りる。出力は CI でテストしている。インクルードガードの
   除去など、自前で書きたくない機能が必要になったら考え直す
 
-## 2026-11-05: 整理 — Dragonbox の移植で持ち込んだ C++20 以前向けの部品を標準ライブラリに置き換えた
+## 2026-11-05 整理: Dragonbox の移植で持ち込んだ C++20 以前向けの部品を標準ライブラリに置き換えた
 
-作者の指摘（「C++20 には `std::rotl` / `std::rotr` があるのに、なぜ `rotr32` / `rotr64` があるのか」）から整理した。
+作者の指摘(「C++20 には `std::rotl` / `std::rotr` があるのに、なぜ `rotr32` / `rotr64` があるのか」)から整理した。
 
 Dragonbox の簡易版は C++20 より前の規格もサポートしているので、`<bit>` の関数を自前で持っている。それをそのまま移植していた。
-json20 は C++20 が前提で、`<bit>` もすでに include している（`std::bit_cast`、`std::countl_zero`）。
+json20 は C++20 が前提で、`<bit>` もすでに include している(`std::bit_cast`、`std::countl_zero`)。
 
-- `rotr32` / `rotr64` → `std::rotr`（C++20 で constexpr）。動作は同じで、コンパイラはどちらも回転命令にする
-- `floor_log2` → `std::bit_width(n) - 1`。コンパイル時の定数の計算にだけ使っていた（1 ビットずつシフトするループだった）
+- `rotr32` / `rotr64` → `std::rotr`(C++20 で constexpr)。動作は同じで、コンパイラはどちらも回転命令にする
+- `floor_log2` → `std::bit_width(n) - 1`。コンパイル時の定数の計算にだけ使っていた(1 ビットずつシフトするループだった)
 
 あわせて、`format_float` が Dragonbox の結果から末尾の 0 を取り除いていたループを削除した。Dragonbox の `to_decimal` が
 `remove_trailing_zeros` ですでに取り除いているので、このループは一度も回っていなかった。乱数の値 1,000 万個、
-m × 10^n の形の値 10 万個、すべての 2 の累乗（double と float の両方）で、`to_decimal` の結果に末尾の 0 が
+m × 10^n の形の値 10 万個、すべての 2 の累乗(double と float の両方)で、`to_decimal` の結果に末尾の 0 が
 残らないことを確かめた。出力は `std::to_chars` とビット単位で突き合わせるテストで検証している。
