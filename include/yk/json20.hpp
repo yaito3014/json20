@@ -264,8 +264,22 @@ struct ieee754<float> {
   static constexpr std::size_t max_digits = 114;
 };
 
+// float or double in the format the conversions below are written for, which
+// they are on practically every platform. Only the type is fixed by C++, not
+// its format: IBM's hexadecimal floating point keeps a 64-bit double, so
+// the size alone does not tell.
 template<class Float>
-concept supported_float = std::same_as<Float, float> || std::same_as<Float, double>;
+concept ieee754_binary =
+    (std::same_as<Float, float> || std::same_as<Float, double>) && std::numeric_limits<Float>::is_iec559 && std::numeric_limits<Float>::radix == 2
+    && std::numeric_limits<Float>::digits == ieee754<Float>::significand_bits + 1
+    && std::numeric_limits<Float>::min_exponent == ieee754<Float>::min_exponent + 1
+    && std::numeric_limits<Float>::max_exponent == ieee754<Float>::max_exponent + 1 && sizeof(Float) == sizeof(typename ieee754<Float>::carrier_uint);
+
+// The floating-point types json20 converts itself: in every character type
+// and in constant expressions. The rest use the platform's std::from_chars /
+// std::to_chars, char only.
+template<class Float>
+concept self_converted = ieee754_binary<Float>;
 
 // A binary floating-point value as the integer bit pattern without the sign:
 // biased exponent << significand_bits | stored significand
@@ -497,6 +511,7 @@ constexpr Float to_float(bool negative, adjusted_mantissa am) noexcept
 // std::invalid_argument if there is no number or it is out of range: its
 // magnitude rounds to infinity, or a nonzero value rounds to zero.
 template<class Float, class charT>
+  requires ieee754_binary<Float>
 constexpr std::pair<Float, std::size_t> parse_float(std::basic_string_view<charT> str)
 {
   constexpr auto zero = YK_JSON20_WIDEN_STRING(charT, "0");
@@ -965,6 +980,7 @@ constexpr std::basic_string<charT> make_string(charT const* first, int length)
 }
 
 template<class charT, class Float>
+  requires ieee754_binary<Float>
 constexpr std::basic_string<charT> format_float(Float x)
 {
   constexpr auto digit_chars = YK_JSON20_WIDEN_STRING(charT, "0123456789");
@@ -1141,7 +1157,7 @@ struct deserializer<T, charT> {
 };
 
 template<class T, class charT>
-  requires detail::number::supported_float<T>
+  requires detail::number::self_converted<T>
 struct deserializer<T, charT> {
   static constexpr auto deserialize(std::basic_string_view<charT> str)
   {
@@ -1152,7 +1168,7 @@ struct deserializer<T, charT> {
 
 // not converted by json20 itself: the platform's from_chars, char only
 template<class T>
-  requires std::same_as<T, long double>
+  requires std::floating_point<T> && (!detail::number::self_converted<T>)
 struct deserializer<T, char> {
   static constexpr auto deserialize(std::string_view str)
   {
@@ -1222,7 +1238,7 @@ struct serializer<T, charT> {
 };
 
 template<class T, class charT>
-  requires detail::number::supported_float<T>
+  requires detail::number::self_converted<T>
 struct serializer<T, charT> {
   static constexpr std::basic_string<charT> serialize(T const& x)
   {
@@ -1233,7 +1249,7 @@ struct serializer<T, charT> {
 
 // not converted by json20 itself: the platform's to_chars, char only
 template<class T>
-  requires std::same_as<T, long double>
+  requires std::floating_point<T> && (!detail::number::self_converted<T>)
 struct serializer<T, char> {
   static std::string serialize(T const& x)
   {

@@ -103,8 +103,12 @@ json(std::numeric_limits<double>::infinity());            // throws std::invalid
 ```
 
 JSON has no infinity or NaN, so constructing or assigning them throws; encode them yourself if
-needed, for example as `json()` (null) or a string. `long double` still uses the standard
-functions and supports `char` only.
+needed, for example as `json()` (null) or a string.
+
+json20's own conversion covers `float` and `double` in IEEE 754 binary32 and binary64, as they
+are on practically every platform. Other floating-point types (`long double`, extended types such
+as `std::float64_t`, and `float` / `double` where they are not IEEE 754) use the standard
+functions and support `char` only.
 
 ## Other character types
 
