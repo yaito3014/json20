@@ -1,4 +1,5 @@
-"""Generates the compressed power-of-five table embedded in include/yk/json20.hpp
+"""Generates the compressed power-of-five table embedded in
+include/yk/json20/detail/number/pow5.hpp
 and the full reference table used by tests/number.cpp.
 
 F(q) is 5^q scaled into [2^127, 2^128) and rounded down, for q in [Q_MIN, Q_MAX].

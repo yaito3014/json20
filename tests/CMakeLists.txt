@@ -26,6 +26,34 @@ set_target_properties(yk_json20_cxx20_test PROPERTIES CXX_STANDARD 20 CXX_STANDA
 target_link_libraries(yk_json20_cxx20_test PRIVATE json20)
 add_test(NAME yk_json20_cxx20_test COMMAND yk_json20_cxx20_test)
 
+# Every part of the split header compiles on its own, in the library's
+# minimum standard: one translation unit per header, including it twice
+if(NOT JSON20_SINGLE_INCLUDE)
+    file(
+        GLOB_RECURSE YK_JSON20_PARTS
+        RELATIVE ${PROJECT_SOURCE_DIR}/include
+        CONFIGURE_DEPENDS
+        ${PROJECT_SOURCE_DIR}/include/*.hpp
+    )
+    set(YK_JSON20_PART_SOURCES)
+    foreach(part IN LISTS YK_JSON20_PARTS)
+        string(MAKE_C_IDENTIFIER ${part} part_name)
+        set(source ${CMAKE_CURRENT_BINARY_DIR}/self_contained/${part_name}.cpp)
+        file(
+            CONFIGURE
+            OUTPUT ${source}
+            CONTENT "#include <${part}>\n#include <${part}>\n"
+        )
+        list(APPEND YK_JSON20_PART_SOURCES ${source})
+    endforeach()
+    add_library(yk_json20_self_contained OBJECT ${YK_JSON20_PART_SOURCES})
+    set_target_properties(
+        yk_json20_self_contained
+        PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON
+    )
+    target_link_libraries(yk_json20_self_contained PRIVATE json20)
+endif()
+
 # EBCDIC support check: all assertions in ebcdic.cpp are static_asserts, so
 # successful compilation is the actual test. Only possible where the compiler
 # can target an EBCDIC execution character set (GCC with iconv; clang cannot).

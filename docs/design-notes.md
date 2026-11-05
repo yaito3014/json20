@@ -1409,3 +1409,107 @@ json20 が対応をうたう EBCDIC の実際の環境は主に z/OS なので�
 - 汎用の経路は、IEEE の `double` にも適用して高速な経路とビット単位で突き合わせることで、IEEE しかない CI でも検証できる
 - `std::float32_t` / `std::float64_t` を高速な経路に入れるのも、`ieee754` の特殊化と `ieee754_binary` の型の列挙を
   足すだけで済む
+
+## 2026-11-05: 設計判断 — ヘッダを分割し、単一ヘッダは生成して配布する（作者判断）
+
+`include/yk/json20.hpp` は 2,350 行を超え、数値変換の内部（5 の累乗の表、Eisel-Lemire、Dragonbox）と
+DOM・パーサが 1 つのファイルに同居していた。作者の方針は「ヘッダを分割したいが、単一ヘッダの提供は続けたい」。
+
+### 判断（作者と合意）
+
+- ソースは `include/yk/json20/` 以下に分割する。`include/yk/json20.hpp` は、公開の部品を include するだけの
+  入口になる。利用者の `#include <yk/json20.hpp>` は変わらない
+- 単一ヘッダは `tools/amalgamate.py` で生成し、`single_include/yk/json20.hpp` としてリポジトリに置く
+  （nlohmann/json と同じ形）。1 ファイルをコピーするだけで使える
+- CI で、生成物が最新であること（`--check`）と、生成物だけでテストが通ること（`-DJSON20_SINGLE_INCLUDE=ON`）を
+  確かめる。後者は GCC 14 の 1 ジョブだけにした（中身は分割版と同じコードなので、全コンパイラで繰り返す必要はない）
+- 分割は、PR #8 のマージを待ってから行う（大きな移動とほかの変更が衝突しないように）
+
+見送った案: 入口のヘッダだけを用意し、単一ファイルは生成しない。1 ファイルをコピーするだけで使える、という
+これまでの手軽さがなくなる。
+
+### 分け方
+
+既存の区切り（コメントの見出し）に沿って、コードを書き換えずに切り出した。切り出しはスクリプトで行い、
+元のファイルと行の集合が一致すること（名前空間の開閉と空行を除く）を確かめた。
+
+| ファイル | 中身 |
+|---|---|
+| `detail/fixed_string.hpp` | `basic_fixed_string`、`select_str`、`YK_JSON20_WIDEN_STRING` |
+| `detail/number/u128.hpp` | 128 ビットの演算 |
+| `detail/number/pow5.hpp` | 圧縮した 5 の累乗の表（A 方式）と、そこから各ライブラリの表を導く関数 |
+| `detail/number/ieee754.hpp` | IEEE 754 の形式の定数、`ieee754_binary`、`self_converted` |
+| `detail/number/parse_float.hpp` | Eisel-Lemire、多倍長整数による正確な比較、`parse_float` |
+| `detail/number/dragonbox.hpp` | Dragonbox |
+| `detail/number/format_float.hpp` | `write_digits`、`format_float` |
+| `conversion.hpp` | `serializer` / `deserializer` |
+| `json.hpp` | `basic_json` と、種類・例外・パースのオプション |
+| `visitor.hpp` | `basic_json_visitor` |
+| `parser.hpp` | `basic_json_parser` |
+| `checked_string.hpp` | `basic_noop_visitor`、`basic_checked_string` |
+
+- 各ファイルは、それだけを include してもコンパイルできる（自己完結）。必要な標準ヘッダは、ファイルごとに
+  使っている名前から決めた。CMake の `yk_json20_self_contained` が、ファイルごとに「2 回 include するだけの翻訳単位」を
+  C++20 でコンパイルして確かめる（インクルードガードの確認も兼ねる）。手元では GCC 14、Clang 18 + libstdc++、
+  Clang 18 + libc++ で通った
+- 部品どうしの include は `<yk/json20/...>` の形で書く。生成スクリプトは、この形の include を見つけて中身に置き換える
+
+### 生成スクリプト
+
+- 入口から順に、`#include <yk/json20/...>` を中身に置き換える。各ファイルは最初に出会ったところで 1 回だけ展開する
+  （依存先が先に来る）
+- 標準ヘッダの include は、最初の 1 回だけ残す
+- 部品のインクルードガードは残す。単一ヘッダと分割版を同じ翻訳単位で混ぜても、二重定義にならない
+- `#if` の中にある include は、条件ごと残さないと意味が変わるので、スクリプトの中で禁止している（今は 1 つもない）
+- 展開の順序は元のファイルと異なる（各部品の依存先が先に来るため）が、コードの行の集合は元のファイルと一致する
+
+### 計測（GCC 14、-O0、`#include <yk/json20.hpp>` だけの翻訳単位、15 回を交互に計測した中央値）
+
+| 版 | 時間 |
+|---|---|
+| 分割前の 1 ファイル | 0.78 秒 |
+| 分割版（`include/`） | 0.81 秒 |
+| 生成した単一ヘッダ（`single_include/`） | 0.81 秒 |
+
+差は 0.03 秒で、計測のばらつきの範囲。ファイルを開く回数が増えても、コンパイル時間はほとんど変わらない。
+
+### 追記: 分割後、EBCDIC + C++26 の CI が失敗した（`<iterator>`）
+
+分割の PR の CI で、GCC 14 / C++26 の 2 ジョブが EBCDIC のテストで失敗した。前に記録した
+「libstdc++ 14 は C++26 モードで EBCDIC に対応していない」問題と同じ（`<charconv>` の表の添字が -16 になる）。
+
+原因: 分割のときに、`std::begin` / `std::end` を使う 2 つの部品（`conversion.hpp`、`detail/number/format_float.hpp`）へ
+`<iterator>` を加えていた。手元で調べると、GCC 14 の `-std=gnu++26 -fexec-charset=IBM1047` では
+`<iterator>` と `<memory>` も、単独で include しただけで失敗する（前の記録では `<format>`、`<ranges>`、`<locale>` だけを
+挙げていた）。分割前のヘッダは `<iterator>` を include していなかった。
+
+修正: `<iterator>` を外した。`std::begin` / `std::end` は `<string>` でも宣言されることが規格で決まっているので、
+その旨を include の横にコメントで残した。手元の自己完結の確認は C++20 で行っていたので、この失敗は CI の
+EBCDIC + C++26 のジョブで初めて見つかった。
+
+### 追記: 単一ヘッダはコミットせず、CI で生成する（作者判断）
+
+PR の作業中に方針を変えた。分割したヘッダを書くことに集中し、1 ファイルにまとめるかどうかは利用者に任せる。
+
+- `single_include/` はリポジトリから外した（`.gitignore` に追加）
+- `tools/amalgamate.py` は、利用者が自分で 1 ファイルを作るための道具として残す（`python3 tools/amalgamate.py [出力先]`）。
+  最新かどうかを確かめる `--check` は不要になったので削除した
+- `-DJSON20_SINGLE_INCLUDE=ON` のときは、CMake が構成時に生成スクリプトを実行し、ビルドディレクトリに 1 ファイルを作る。
+  部品やスクリプトが変わると再構成されて作り直されるので、古い生成物が使われることはない（Python 3 が要るのはこのときだけ）
+- CI の「Single header」ジョブは、生成した 1 ファイルだけでテストを通し、そのファイルを成果物
+  （`json20-single-header`）として残す
+
+理由: 生成物をコミットすると、ヘッダを変えるたびに差分が 2 重になり、生成し直す手間と、それを確かめる CI が要る。
+1 ファイルが欲しい利用者には、スクリプトか CI の成果物で足りる。将来リリースを作るときは、生成物を GitHub の
+リリースに添付すれば、バージョンの固定された 1 ファイルの URL も用意できる。
+
+検討して見送ったこと:
+
+- **本物のプリプロセッサ（`cpp -E` や GCC の `-fdirectives-only`）でまとめる**: プリプロセッサは、まとめる環境に合わせて
+  すべてを解決してしまう。`u128.hpp` の `#if defined(__SIZEOF_INT128__)` が GCC で決まってしまい、MSVC では
+  動かない 1 ファイルになる。標準ヘッダの中身も、まとめた環境のものが展開される。`-fdirectives-only` ならマクロは
+  展開されないが、前の 2 つの問題は残る。1 ファイルにまとめる処理は、環境に依存しない文字列の連結でなければならない
+- **既存の道具（quom など）を使う**: pip のパッケージへの依存が、CI と、自分でまとめる利用者の両方に増える。
+  json20 に必要なのは「`<yk/json20/...>` を 1 回ずつ展開し、標準ヘッダの include を 1 回だけ残し、`#if` の中の include を
+  拒否する」ことだけで、自前のスクリプト（約 90 行、依存なし）で足りる。出力は CI でテストしている。インクルードガードの
+  除去など、自前で書きたくない機能が必要になったら考え直す

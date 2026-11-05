@@ -14,6 +14,7 @@ on:
       - main
     paths: &paths-to-detect
       - "include/**/*"
+      - "tools/**/*"
       - "tests/**/*"
       - "cmake/**/*"
       - "CMakeLists.txt"
@@ -138,6 +139,37 @@ jobs:
       - name: Run test
         run: |
           ctest --test-dir build -C ${{ matrix.build-type }} --output-on-failure
+  # the single header generated from include/ passes the tests by itself;
+  # it is kept as an artifact for anyone who wants the one file
+  single-header:
+    name: Single header (GCC 14 on ubuntu)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Init Ubuntu
+        run: |
+          echo "set man-db/auto-update false" | sudo debconf-communicate
+          sudo dpkg-reconfigure man-db
+          sudo apt-get update
+          sudo apt-get install -y ninja-build g++-14
+      - name: Configure
+        run: >
+          cmake -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_STANDARD=23
+          -DCMAKE_CXX_COMPILER=g++-14
+          -DJSON20_SINGLE_INCLUDE=ON
+          -DJSON20_CI=ON
+          -Bbuild .
+      - name: Build tests
+        run: cmake --build build
+      - name: Run test
+        run: ctest --test-dir build --output-on-failure
+      - name: Upload the single header
+        uses: actions/upload-artifact@v4
+        with:
+          name: json20-single-header
+          path: build/single_include/yk/json20.hpp
   run-notifier:
     needs: build
     runs-on: ubuntu-latest
