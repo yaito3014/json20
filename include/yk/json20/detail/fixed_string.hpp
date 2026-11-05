@@ -9,11 +9,7 @@
 #define YK_JSON20_WIDEN_STRING(charT, strLiteral) \
   ::yk::json20::detail::select_str<charT, strLiteral, L##strLiteral, u8##strLiteral, u##strLiteral, U##strLiteral>::value
 
-namespace yk {
-
-namespace json20 {
-
-namespace detail {
+namespace yk::json20::detail {
 
 template<class charT, std::size_t N>
 struct basic_fixed_string {
@@ -66,10 +62,6 @@ struct select_str<char32_t, Str, WStr, U8Str, U16Str, U32Str> {
   static constexpr auto value = U32Str;
 };
 
-}  // namespace detail
-
-}  // namespace json20
-
-}  // namespace yk
+}  // namespace yk::json20::detail
 
 #endif  // YK_ZZ_JSON20_DETAIL_FIXED_STRING_HPP

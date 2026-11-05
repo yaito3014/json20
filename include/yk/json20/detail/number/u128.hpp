@@ -3,11 +3,7 @@
 
 #include <cstdint>
 
-namespace yk {
-
-namespace json20 {
-
-namespace detail::number {
+namespace yk::json20::detail::number {
 
 // 128-bit arithmetic
 
@@ -37,10 +33,6 @@ constexpr u128 umul128(std::uint64_t a, std::uint64_t b) noexcept
 #endif
 }
 
-}  // namespace detail::number
-
-}  // namespace json20
-
-}  // namespace yk
+}  // namespace yk::json20::detail::number
 
 #endif  // YK_ZZ_JSON20_DETAIL_NUMBER_U128_HPP

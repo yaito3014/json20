@@ -13,9 +13,7 @@
 
 #include <cassert>
 
-namespace yk {
-
-namespace json20 {
+namespace yk::json20 {
 
 template<class charT>
 class basic_json_visitor {
@@ -108,8 +106,6 @@ using u8json_visitor = basic_json_visitor<char8_t>;
 using u16json_visitor = basic_json_visitor<char16_t>;
 using u32json_visitor = basic_json_visitor<char32_t>;
 
-}  // namespace json20
-
-}  // namespace yk
+}  // namespace yk::json20
 
 #endif  // YK_ZZ_JSON20_VISITOR_HPP

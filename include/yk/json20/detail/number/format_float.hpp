@@ -14,11 +14,7 @@
 #include <string>
 #include <type_traits>
 
-namespace yk {
-
-namespace json20 {
-
-namespace detail::number {
+namespace yk::json20::detail::number {
 
 // Binary to decimal: formatting
 //
@@ -180,10 +176,6 @@ constexpr std::basic_string<charT> format_float(Float x)
   return make_string(buf, len);
 }
 
-}  // namespace detail::number
-
-}  // namespace json20
-
-}  // namespace yk
+}  // namespace yk::json20::detail::number
 
 #endif  // YK_ZZ_JSON20_DETAIL_NUMBER_FORMAT_FLOAT_HPP
