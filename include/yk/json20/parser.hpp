@@ -14,9 +14,7 @@
 
 #include <cassert>
 
-namespace yk {
-
-namespace json20 {
+namespace yk::json20 {
 
 template<class charT>
 class basic_json_parser {
@@ -477,8 +475,6 @@ using u8json_parser = basic_json_parser<char8_t>;
 using u16json_parser = basic_json_parser<char16_t>;
 using u32json_parser = basic_json_parser<char32_t>;
 
-}  // namespace json20
-
-}  // namespace yk
+}  // namespace yk::json20
 
 #endif  // YK_ZZ_JSON20_PARSER_HPP

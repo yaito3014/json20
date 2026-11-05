@@ -20,9 +20,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace yk {
-
-namespace json20 {
+namespace yk::json20 {
 
 template<class charT, class Tuple>
 struct deserialize_result {
@@ -199,8 +197,6 @@ struct serializer<T, char> {
   }
 };
 
-}  // namespace json20
-
-}  // namespace yk
+}  // namespace yk::json20
 
 #endif  // YK_ZZ_JSON20_CONVERSION_HPP

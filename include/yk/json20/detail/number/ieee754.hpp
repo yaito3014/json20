@@ -7,11 +7,7 @@
 #include <cstdint>
 #include <limits>
 
-namespace yk {
-
-namespace json20 {
-
-namespace detail::number {
+namespace yk::json20::detail::number {
 
 template<class Float>
 struct ieee754;
@@ -79,10 +75,6 @@ struct adjusted_mantissa {
   friend constexpr bool operator==(adjusted_mantissa, adjusted_mantissa) = default;
 };
 
-}  // namespace detail::number
-
-}  // namespace json20
-
-}  // namespace yk
+}  // namespace yk::json20::detail::number
 
 #endif  // YK_ZZ_JSON20_DETAIL_NUMBER_IEEE754_HPP

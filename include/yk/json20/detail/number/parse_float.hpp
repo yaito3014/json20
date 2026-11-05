@@ -17,11 +17,7 @@
 
 #include <cassert>
 
-namespace yk {
-
-namespace json20 {
-
-namespace detail::number {
+namespace yk::json20::detail::number {
 
 // Adapted from fast_float (https://github.com/fastfloat/fast_float),
 // Copyright (c) 2021 The fast_float authors, used under the Boost Software
@@ -322,10 +318,6 @@ constexpr std::pair<Float, std::size_t> parse_float(std::basic_string_view<charT
   return {to_float<Float>(negative, am), i};
 }
 
-}  // namespace detail::number
-
-}  // namespace json20
-
-}  // namespace yk
+}  // namespace yk::json20::detail::number
 
 #endif  // YK_ZZ_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP

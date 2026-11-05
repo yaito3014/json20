@@ -8,11 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace yk {
-
-namespace json20 {
-
-namespace detail::number {
+namespace yk::json20::detail::number {
 
 // F(q) is 5^q scaled into [2^127, 2^128) and rounded down, q in [-342, 326].
 // Every table the conversions need derives from it (see
@@ -84,10 +80,6 @@ struct pow5 {
   }
 };
 
-}  // namespace detail::number
-
-}  // namespace json20
-
-}  // namespace yk
+}  // namespace yk::json20::detail::number
 
 #endif  // YK_ZZ_JSON20_DETAIL_NUMBER_POW5_HPP

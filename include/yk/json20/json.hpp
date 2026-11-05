@@ -19,9 +19,7 @@
 #include <variant>
 #include <vector>
 
-namespace yk {
-
-namespace json20 {
+namespace yk::json20 {
 
 enum class json_value_kind {
   null,
@@ -447,8 +445,6 @@ using u8json = basic_json<char8_t>;
 using u16json = basic_json<char16_t>;
 using u32json = basic_json<char32_t>;
 
-}  // namespace json20
-
-}  // namespace yk
+}  // namespace yk::json20
 
 #endif  // YK_ZZ_JSON20_JSON_HPP

@@ -6,9 +6,7 @@
 #include <concepts>
 #include <string_view>
 
-namespace yk {
-
-namespace json20 {
+namespace yk::json20 {
 
 template<class charT>
 struct basic_noop_visitor {
@@ -54,8 +52,6 @@ using u8checked_string = basic_checked_string<char8_t>;
 using u16checked_string = basic_checked_string<char16_t>;
 using u32checked_string = basic_checked_string<char32_t>;
 
-}  // namespace json20
-
-}  // namespace yk
+}  // namespace yk::json20
 
 #endif  // YK_ZZ_JSON20_CHECKED_STRING_HPP
