@@ -1,15 +1,9 @@
-#ifndef YK_JSON20_DETAIL_NUMBER_U128_HPP
-#define YK_JSON20_DETAIL_NUMBER_U128_HPP
+#ifndef YK_ZZ_JSON20_DETAIL_NUMBER_U128_HPP
+#define YK_ZZ_JSON20_DETAIL_NUMBER_U128_HPP
 
 #include <cstdint>
 
-namespace yk {
-
-namespace json20 {
-
-namespace detail::number {
-
-// 128-bit arithmetic
+namespace yk::json20::detail::number {
 
 struct u128 {
   std::uint64_t hi;
@@ -37,10 +31,6 @@ constexpr u128 umul128(std::uint64_t a, std::uint64_t b) noexcept
 #endif
 }
 
-}  // namespace detail::number
+}  // namespace yk::json20::detail::number
 
-}  // namespace json20
-
-}  // namespace yk
-
-#endif  // YK_JSON20_DETAIL_NUMBER_U128_HPP
+#endif  // YK_ZZ_JSON20_DETAIL_NUMBER_U128_HPP

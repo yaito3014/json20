@@ -30,17 +30,17 @@ TEST_CASE("visit", "[debug]")
 
   {
     yk::json20::basic_json_visitor<char> json_visitor;
-    json_visitor.on_object_start();                  // prepare map
-    json_visitor.on_string("foo");                   // parse key
-    json_visitor.on_number_unsigned_integer("123");  // parse uint
-    json_visitor.on_object_finalize();               // insert into map, construct json
+    json_visitor.on_object_start();
+    json_visitor.on_string("foo");
+    json_visitor.on_number_unsigned_integer("123");
+    json_visitor.on_object_finalize();
     auto const json = json_visitor.get();
   }
   {
     yk::json20::basic_json_visitor<char> json_visitor;
-    json_visitor.on_object_start();                  // prepare map
-    json_visitor.on_object_abort();                  // abort map
-    json_visitor.on_number_unsigned_integer("123");  // assign value
+    json_visitor.on_object_start();
+    json_visitor.on_object_abort();
+    json_visitor.on_number_unsigned_integer("123");
     auto const json = json_visitor.get();
   }
 }

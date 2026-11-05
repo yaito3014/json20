@@ -1,5 +1,5 @@
-#ifndef YK_JSON20_DETAIL_NUMBER_IEEE754_HPP
-#define YK_JSON20_DETAIL_NUMBER_IEEE754_HPP
+#ifndef YK_ZZ_JSON20_DETAIL_NUMBER_IEEE754_HPP
+#define YK_ZZ_JSON20_DETAIL_NUMBER_IEEE754_HPP
 
 #include <charconv>
 #include <concepts>
@@ -7,13 +7,7 @@
 #include <cstdint>
 #include <limits>
 
-namespace yk {
-
-namespace json20 {
-
-namespace detail::number {
-
-// IEEE-754 formats
+namespace yk::json20::detail::number {
 
 template<class Float>
 struct ieee754;
@@ -81,10 +75,6 @@ struct adjusted_mantissa {
   friend constexpr bool operator==(adjusted_mantissa, adjusted_mantissa) = default;
 };
 
-}  // namespace detail::number
+}  // namespace yk::json20::detail::number
 
-}  // namespace json20
-
-}  // namespace yk
-
-#endif  // YK_JSON20_DETAIL_NUMBER_IEEE754_HPP
+#endif  // YK_ZZ_JSON20_DETAIL_NUMBER_IEEE754_HPP

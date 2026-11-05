@@ -1,18 +1,17 @@
-#ifndef YK_JSON20_CONVERSION_HPP
-#define YK_JSON20_CONVERSION_HPP
+#ifndef YK_ZZ_JSON20_CONVERSION_HPP
+#define YK_ZZ_JSON20_CONVERSION_HPP
 
-#include <yk/json20/detail/fixed_string.hpp>
 #include <yk/json20/detail/number/format_float.hpp>
 #include <yk/json20/detail/number/ieee754.hpp>
 #include <yk/json20/detail/number/parse_float.hpp>
+#include <yk/json20/detail/select_str.hpp>
 
+#include <array>
 #include <charconv>
 #include <concepts>
 #include <cstddef>
 #include <limits>
 #include <stdexcept>
-// std::begin / std::end come from <string>: <iterator> does not compile in
-// C++26 mode with libstdc++ 14 under an EBCDIC execution character set
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -20,9 +19,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace yk {
-
-namespace json20 {
+namespace yk::json20 {
 
 template<class charT, class Tuple>
 struct deserialize_result {
@@ -166,8 +163,8 @@ struct serializer<T, charT> {
     }
 
     // digits10 rounds down, so +2 covers every digit plus the sign
-    charT buf[std::numeric_limits<U>::digits10 + 2]{};
-    charT* const last = std::end(buf);
+    std::array<charT, std::numeric_limits<U>::digits10 + 2> buf{};
+    charT* const last = buf.data() + buf.size();
     charT* first = detail::number::write_digits(last, value);
     if (negative) *--first = minus.data[0];
     return std::basic_string<charT>(first, last);
@@ -192,15 +189,13 @@ struct serializer<T, char> {
   {
     if (!detail::is_finite(x)) throw std::invalid_argument("JSON cannot represent infinity or NaN");
     // shortest form needs max_digits10 digits, sign, dot, and "e+XXXX"
-    char buf[std::numeric_limits<T>::max_digits10 + 8];
-    auto [ptr, ec] = std::to_chars(std::begin(buf), std::end(buf), x);
+    std::array<char, std::numeric_limits<T>::max_digits10 + 8> buf;
+    auto [ptr, ec] = std::to_chars(buf.data(), buf.data() + buf.size(), x);
     if (ec != std::errc{}) throw std::runtime_error("to_chars error");
-    return std::string(buf, ptr);
+    return std::string(buf.data(), ptr);
   }
 };
 
-}  // namespace json20
+}  // namespace yk::json20
 
-}  // namespace yk
-
-#endif  // YK_JSON20_CONVERSION_HPP
+#endif  // YK_ZZ_JSON20_CONVERSION_HPP

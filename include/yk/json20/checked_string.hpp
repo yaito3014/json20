@@ -1,14 +1,12 @@
-#ifndef YK_JSON20_CHECKED_STRING_HPP
-#define YK_JSON20_CHECKED_STRING_HPP
+#ifndef YK_ZZ_JSON20_CHECKED_STRING_HPP
+#define YK_ZZ_JSON20_CHECKED_STRING_HPP
 
 #include <yk/json20/parser.hpp>
 
 #include <concepts>
 #include <string_view>
 
-namespace yk {
-
-namespace json20 {
+namespace yk::json20 {
 
 template<class charT>
 struct basic_noop_visitor {
@@ -54,8 +52,6 @@ using u8checked_string = basic_checked_string<char8_t>;
 using u16checked_string = basic_checked_string<char16_t>;
 using u32checked_string = basic_checked_string<char32_t>;
 
-}  // namespace json20
+}  // namespace yk::json20
 
-}  // namespace yk
-
-#endif  // YK_JSON20_CHECKED_STRING_HPP
+#endif  // YK_ZZ_JSON20_CHECKED_STRING_HPP

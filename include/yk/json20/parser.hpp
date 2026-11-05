@@ -1,7 +1,8 @@
-#ifndef YK_JSON20_PARSER_HPP
-#define YK_JSON20_PARSER_HPP
+#ifndef YK_ZZ_JSON20_PARSER_HPP
+#define YK_ZZ_JSON20_PARSER_HPP
 
 #include <yk/json20/detail/fixed_string.hpp>
+#include <yk/json20/detail/select_str.hpp>
 #include <yk/json20/json.hpp>
 #include <yk/json20/visitor.hpp>
 
@@ -13,9 +14,7 @@
 
 #include <cassert>
 
-namespace yk {
-
-namespace json20 {
+namespace yk::json20 {
 
 template<class charT>
 class basic_json_parser {
@@ -180,40 +179,18 @@ private:
 
   static constexpr parse_result cntrl(std::basic_string_view<charT> str) noexcept
   {
-    auto const control_characters_parser = alt(
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0000")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0001")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0002")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0003")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0004")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0005")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0006")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0007")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0008")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0009")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u000A")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u000B")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u000C")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u000D")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u000E")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u000F")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0010")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0011")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0012")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0013")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0014")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0015")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0016")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0017")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0018")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u0019")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u001A")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u001B")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u001C")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u001D")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u001E")),  //
-        lit(YK_JSON20_WIDEN_STRING(charT, "\u001F"))   //
-    );
+    auto const control_characters_parser =
+        alt(lit(YK_JSON20_WIDEN_STRING(charT, "\u0000")), lit(YK_JSON20_WIDEN_STRING(charT, "\u0001")), lit(YK_JSON20_WIDEN_STRING(charT, "\u0002")),
+            lit(YK_JSON20_WIDEN_STRING(charT, "\u0003")), lit(YK_JSON20_WIDEN_STRING(charT, "\u0004")), lit(YK_JSON20_WIDEN_STRING(charT, "\u0005")),
+            lit(YK_JSON20_WIDEN_STRING(charT, "\u0006")), lit(YK_JSON20_WIDEN_STRING(charT, "\u0007")), lit(YK_JSON20_WIDEN_STRING(charT, "\u0008")),
+            lit(YK_JSON20_WIDEN_STRING(charT, "\u0009")), lit(YK_JSON20_WIDEN_STRING(charT, "\u000A")), lit(YK_JSON20_WIDEN_STRING(charT, "\u000B")),
+            lit(YK_JSON20_WIDEN_STRING(charT, "\u000C")), lit(YK_JSON20_WIDEN_STRING(charT, "\u000D")), lit(YK_JSON20_WIDEN_STRING(charT, "\u000E")),
+            lit(YK_JSON20_WIDEN_STRING(charT, "\u000F")), lit(YK_JSON20_WIDEN_STRING(charT, "\u0010")), lit(YK_JSON20_WIDEN_STRING(charT, "\u0011")),
+            lit(YK_JSON20_WIDEN_STRING(charT, "\u0012")), lit(YK_JSON20_WIDEN_STRING(charT, "\u0013")), lit(YK_JSON20_WIDEN_STRING(charT, "\u0014")),
+            lit(YK_JSON20_WIDEN_STRING(charT, "\u0015")), lit(YK_JSON20_WIDEN_STRING(charT, "\u0016")), lit(YK_JSON20_WIDEN_STRING(charT, "\u0017")),
+            lit(YK_JSON20_WIDEN_STRING(charT, "\u0018")), lit(YK_JSON20_WIDEN_STRING(charT, "\u0019")), lit(YK_JSON20_WIDEN_STRING(charT, "\u001A")),
+            lit(YK_JSON20_WIDEN_STRING(charT, "\u001B")), lit(YK_JSON20_WIDEN_STRING(charT, "\u001C")), lit(YK_JSON20_WIDEN_STRING(charT, "\u001D")),
+            lit(YK_JSON20_WIDEN_STRING(charT, "\u001E")), lit(YK_JSON20_WIDEN_STRING(charT, "\u001F")));
 
     return control_characters_parser(str);
   }
@@ -238,7 +215,6 @@ private:
   } else if constexpr (requires { vis.member(normal_arg); }) {          \
     vis.member(normal_arg);                                             \
   }
-
 
   template<class Visitor>
   static constexpr parse_result parse_null(Visitor& vis, std::basic_string_view<charT> str) noexcept
@@ -270,17 +246,9 @@ private:
   {
     auto const parse0 = lit(YK_JSON20_WIDEN_STRING(charT, "0"));
     auto const parse1to9 =
-        alt(                                          //
-            lit(YK_JSON20_WIDEN_STRING(charT, "1")),  //
-            lit(YK_JSON20_WIDEN_STRING(charT, "2")),  //
-            lit(YK_JSON20_WIDEN_STRING(charT, "3")),  //
-            lit(YK_JSON20_WIDEN_STRING(charT, "4")),  //
-            lit(YK_JSON20_WIDEN_STRING(charT, "5")),  //
-            lit(YK_JSON20_WIDEN_STRING(charT, "6")),  //
-            lit(YK_JSON20_WIDEN_STRING(charT, "7")),  //
-            lit(YK_JSON20_WIDEN_STRING(charT, "8")),  //
-            lit(YK_JSON20_WIDEN_STRING(charT, "9"))   //
-        );
+        alt(lit(YK_JSON20_WIDEN_STRING(charT, "1")), lit(YK_JSON20_WIDEN_STRING(charT, "2")), lit(YK_JSON20_WIDEN_STRING(charT, "3")),
+            lit(YK_JSON20_WIDEN_STRING(charT, "4")), lit(YK_JSON20_WIDEN_STRING(charT, "5")), lit(YK_JSON20_WIDEN_STRING(charT, "6")),
+            lit(YK_JSON20_WIDEN_STRING(charT, "7")), lit(YK_JSON20_WIDEN_STRING(charT, "8")), lit(YK_JSON20_WIDEN_STRING(charT, "9")));
     auto const parse0to9 = alt(parse0, parse1to9);
 
     auto const parse_minus = lit(YK_JSON20_WIDEN_STRING(charT, "-"));
@@ -354,31 +322,6 @@ private:
   {
     auto const quote = YK_JSON20_WIDEN_STRING(charT, "\"");
     auto const backslash = YK_JSON20_WIDEN_STRING(charT, "\\");
-
-    // const auto hex = alt(
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "0")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "1")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "2")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "3")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "4")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "5")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "6")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "7")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "8")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "9")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "A")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "B")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "C")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "D")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "E")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "F")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "a")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "b")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "c")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "d")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "e")),  //
-    //     lit(YK_JSON20_WIDEN_STRING(charT, "f"))   //
-    // );
 
     auto const escape_sequence = [&](std::basic_string_view<charT> s) -> parse_result {
       if (!s.starts_with(std::basic_string_view<charT>(backslash))) return {std::nullopt, s};
@@ -463,8 +406,7 @@ private:
     auto const colon = YK_JSON20_WIDEN_STRING(charT, ":");
     auto const comma = YK_JSON20_WIDEN_STRING(charT, ",");
 
-    auto const key_value_parser =
-        seq(ws, bind_visitor(parse_string<Visitor>, vis), ws, lit(colon), bind_visitor(parse_value<Visitor>, vis));
+    auto const key_value_parser = seq(ws, bind_visitor(parse_string<Visitor>, vis), ws, lit(colon), bind_visitor(parse_value<Visitor>, vis));
     auto const parser = seq(lit(open_brace), alt(sep_by(key_value_parser, lit(comma)), ws), lit(close_brace));
 
     YK_JSON20_INVOKE_VISITOR_ARG2(vis, on_object_start)
@@ -483,14 +425,8 @@ private:
   {
     auto const parser =
         seq(ws,
-            alt(
-                bind_visitor(parse_null<Visitor>, vis),     //
-                bind_visitor(parse_boolean<Visitor>, vis),  //
-                bind_visitor(parse_number<Visitor>, vis),   //
-                bind_visitor(parse_string<Visitor>, vis),   //
-                bind_visitor(parse_array<Visitor>, vis),    //
-                bind_visitor(parse_object<Visitor>, vis)    //
-            ),
+            alt(bind_visitor(parse_null<Visitor>, vis), bind_visitor(parse_boolean<Visitor>, vis), bind_visitor(parse_number<Visitor>, vis),
+                bind_visitor(parse_string<Visitor>, vis), bind_visitor(parse_array<Visitor>, vis), bind_visitor(parse_object<Visitor>, vis)),
             ws);
 
     auto res = parser(str);
@@ -539,8 +475,6 @@ using u8json_parser = basic_json_parser<char8_t>;
 using u16json_parser = basic_json_parser<char16_t>;
 using u32json_parser = basic_json_parser<char32_t>;
 
-}  // namespace json20
+}  // namespace yk::json20
 
-}  // namespace yk
-
-#endif  // YK_JSON20_PARSER_HPP
+#endif  // YK_ZZ_JSON20_PARSER_HPP

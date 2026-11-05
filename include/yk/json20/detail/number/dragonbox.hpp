@@ -1,5 +1,5 @@
-#ifndef YK_JSON20_DETAIL_NUMBER_DRAGONBOX_HPP
-#define YK_JSON20_DETAIL_NUMBER_DRAGONBOX_HPP
+#ifndef YK_ZZ_JSON20_DETAIL_NUMBER_DRAGONBOX_HPP
+#define YK_ZZ_JSON20_DETAIL_NUMBER_DRAGONBOX_HPP
 
 #include <yk/json20/detail/number/ieee754.hpp>
 #include <yk/json20/detail/number/pow5.hpp>
@@ -8,20 +8,12 @@
 #include <bit>
 #include <cstdint>
 
-namespace yk {
-
-namespace json20 {
-
-namespace detail::number {
-
-// Binary to decimal: Dragonbox
-//
 // Adapted from the simple implementation of Dragonbox
 // (https://github.com/jk-jeon/dragonbox), Copyright 2024-2025 Junekey Jeon,
 // Toby Bell, used under the Boost Software License 1.0. The caches come from
 // the shared power-of-five table instead of Dragonbox's own.
 
-namespace dragonbox {
+namespace yk::json20::detail::number::dragonbox {
 
 constexpr int floor_log10_pow2(int e) noexcept { return (e * 315653) >> 20; }
 constexpr int floor_log2_pow10(int e) noexcept { return (e * 1741647) >> 19; }
@@ -246,8 +238,7 @@ constexpr decimal_fp<typename ieee754<Float>::carrier_uint> to_decimal(Float x) 
       }
 
       decimal_significand = fmt::compute_round_up_for_shorter_interval_case(cache, beta);
-      if (decimal_significand % 2 != 0 && binary_exponent >= shorter_interval_tie_lower_threshold &&
-          binary_exponent <= shorter_interval_tie_upper_threshold) {
+      if (decimal_significand % 2 != 0 && binary_exponent >= shorter_interval_tie_lower_threshold && binary_exponent <= shorter_interval_tie_upper_threshold) {
         --decimal_significand;
       } else if (decimal_significand < xi) {
         ++decimal_significand;
@@ -316,12 +307,6 @@ constexpr decimal_fp<typename ieee754<Float>::carrier_uint> to_decimal(Float x) 
   return {decimal_significand, minus_k + kappa};
 }
 
-}  // namespace dragonbox
+}  // namespace yk::json20::detail::number::dragonbox
 
-}  // namespace detail::number
-
-}  // namespace json20
-
-}  // namespace yk
-
-#endif  // YK_JSON20_DETAIL_NUMBER_DRAGONBOX_HPP
+#endif  // YK_ZZ_JSON20_DETAIL_NUMBER_DRAGONBOX_HPP

@@ -1,8 +1,8 @@
-#ifndef YK_JSON20_JSON_HPP
-#define YK_JSON20_JSON_HPP
+#ifndef YK_ZZ_JSON20_JSON_HPP
+#define YK_ZZ_JSON20_JSON_HPP
 
 #include <yk/json20/conversion.hpp>
-#include <yk/json20/detail/fixed_string.hpp>
+#include <yk/json20/detail/select_str.hpp>
 
 #include <algorithm>
 #include <concepts>
@@ -19,9 +19,7 @@
 #include <variant>
 #include <vector>
 
-namespace yk {
-
-namespace json20 {
+namespace yk::json20 {
 
 enum class json_value_kind {
   null,
@@ -54,8 +52,9 @@ namespace detail {
 // maps a semantic kind onto its storage alternative: every scalar kind keeps
 // its lexeme in the string at index 0, only the containers get their own slot
 template<json_value_kind K>
-inline constexpr std::size_t storage_index_of =
-    K == json_value_kind::array ? 1 : K == json_value_kind::object ? 2 : 0;
+inline constexpr std::size_t storage_index_of = K == json_value_kind::array    ? 1
+                                                : K == json_value_kind::object ? 2
+                                                                               : 0;
 
 }  // namespace detail
 
@@ -68,8 +67,7 @@ private:
   // the only places where a kind is paired with a storage alternative;
   // every constructor, assignment and the visitor funnel through these
   template<json_value_kind K, class... Args>
-  constexpr basic_json(kind_construct_t<K>, Args&&... args)
-      : kind_(K), data_(std::in_place_index<detail::storage_index_of<K>>, std::forward<Args>(args)...)
+  constexpr basic_json(kind_construct_t<K>, Args&&... args) : kind_(K), data_(std::in_place_index<detail::storage_index_of<K>>, std::forward<Args>(args)...)
   {
   }
 
@@ -340,10 +338,7 @@ public:
   template<class charT2>
   friend class basic_json_visitor;
 
-  constexpr basic_json()
-      : basic_json(kind_construct_t<json_value_kind::null>{}, std::basic_string_view<charT>(YK_JSON20_WIDEN_STRING(charT, "null")))
-  {
-  }
+  constexpr basic_json() : basic_json(kind_construct_t<json_value_kind::null>{}, std::basic_string_view<charT>(YK_JSON20_WIDEN_STRING(charT, "null"))) {}
 
   constexpr basic_json(bool x) : basic_json(kind_construct_t<json_value_kind::boolean>{}, serializer<bool, charT>::serialize(x)) {}
 
@@ -374,8 +369,7 @@ public:
 
   constexpr basic_json(std::initializer_list<basic_json> il) : basic_json(kind_construct_t<json_value_kind::array>{}, il) {}
 
-  constexpr basic_json(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il)
-      : basic_json(kind_construct_t<json_value_kind::object>{}, il)
+  constexpr basic_json(std::initializer_list<std::pair<std::basic_string<charT>, basic_json>> il) : basic_json(kind_construct_t<json_value_kind::object>{}, il)
   {
     if (normalize_object(std::get<2>(data_), false)) throw std::invalid_argument("duplicate key in object");
   }
@@ -451,8 +445,6 @@ using u8json = basic_json<char8_t>;
 using u16json = basic_json<char16_t>;
 using u32json = basic_json<char32_t>;
 
-}  // namespace json20
+}  // namespace yk::json20
 
-}  // namespace yk
-
-#endif  // YK_JSON20_JSON_HPP
+#endif  // YK_ZZ_JSON20_JSON_HPP

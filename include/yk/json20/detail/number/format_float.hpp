@@ -1,27 +1,21 @@
-#ifndef YK_JSON20_DETAIL_NUMBER_FORMAT_FLOAT_HPP
-#define YK_JSON20_DETAIL_NUMBER_FORMAT_FLOAT_HPP
+#ifndef YK_ZZ_JSON20_DETAIL_NUMBER_FORMAT_FLOAT_HPP
+#define YK_ZZ_JSON20_DETAIL_NUMBER_FORMAT_FLOAT_HPP
 
-#include <yk/json20/detail/fixed_string.hpp>
 #include <yk/json20/detail/number/dragonbox.hpp>
 #include <yk/json20/detail/number/ieee754.hpp>
+#include <yk/json20/detail/select_str.hpp>
 
+#include <array>
 #include <bit>
 #include <charconv>
-#include <cstddef>
-#include <cstdint>
-// std::begin / std::end come from <string>: <iterator> does not compile in
-// C++26 mode with libstdc++ 14 under an EBCDIC execution character set
 #include <string>
 #include <type_traits>
 
-namespace yk {
+#include <cstddef>
+#include <cstdint>
 
-namespace json20 {
+namespace yk::json20::detail::number {
 
-namespace detail::number {
-
-// Binary to decimal: formatting
-//
 // Same output as std::to_chars(first, last, value): the shortest round-trip
 // digits, in fixed or scientific notation whichever is shorter (fixed on a
 // tie), with an exponent of at least two digits.
@@ -67,14 +61,14 @@ constexpr charT* write_digits(charT* last, UInt value) noexcept
 // member template it delegates to as undefined. At run time the constructor
 // is faster.
 template<class charT>
-constexpr std::basic_string<charT> make_string(charT const* first, int length)
+constexpr std::basic_string<charT> make_string(charT const* first, std::size_t length)
 {
   if (std::is_constant_evaluated()) {
     std::basic_string<charT> out;
-    out.append(first, std::size_t(length));
+    out.append(first, length);
     return out;
   }
-  return std::basic_string<charT>(first, std::size_t(length));
+  return std::basic_string<charT>(first, length);
 }
 
 template<class charT, class Float>
@@ -106,9 +100,10 @@ constexpr std::basic_string<charT> format_float(Float x)
 
   // no trailing zeros: Dragonbox's to_decimal removes them
   auto const [significand, exponent] = dragonbox::to_decimal(x);
-  charT digit_buf[20]{};
-  charT const* const digits = write_digits(std::end(digit_buf), significand);
-  int const n = int(std::end(digit_buf) - digits);
+  std::array<charT, 20> digit_buf{};
+  charT* const digits_end = digit_buf.data() + digit_buf.size();
+  charT const* const digits = write_digits(digits_end, significand);
+  int const n = int(digits_end - digits);
 
   int const scientific_exponent = exponent + n - 1;
   int const abs_exponent = scientific_exponent < 0 ? -scientific_exponent : scientific_exponent;
@@ -180,10 +175,6 @@ constexpr std::basic_string<charT> format_float(Float x)
   return make_string(buf, len);
 }
 
-}  // namespace detail::number
+}  // namespace yk::json20::detail::number
 
-}  // namespace json20
-
-}  // namespace yk
-
-#endif  // YK_JSON20_DETAIL_NUMBER_FORMAT_FLOAT_HPP
+#endif  // YK_ZZ_JSON20_DETAIL_NUMBER_FORMAT_FLOAT_HPP

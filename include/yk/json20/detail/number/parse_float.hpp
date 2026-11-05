@@ -1,10 +1,10 @@
-#ifndef YK_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP
-#define YK_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP
+#ifndef YK_ZZ_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP
+#define YK_ZZ_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP
 
-#include <yk/json20/detail/fixed_string.hpp>
 #include <yk/json20/detail/number/ieee754.hpp>
 #include <yk/json20/detail/number/pow5.hpp>
 #include <yk/json20/detail/number/u128.hpp>
+#include <yk/json20/detail/select_str.hpp>
 
 #include <array>
 #include <bit>
@@ -17,14 +17,8 @@
 
 #include <cassert>
 
-namespace yk {
+namespace yk::json20::detail::number {
 
-namespace json20 {
-
-namespace detail::number {
-
-// Decimal to binary: Eisel-Lemire
-//
 // Adapted from fast_float (https://github.com/fastfloat/fast_float),
 // Copyright (c) 2021 The fast_float authors, used under the Boost Software
 // License 1.0. Algorithm: D. Lemire, "Number Parsing at a Gigabyte per
@@ -60,7 +54,7 @@ constexpr adjusted_mantissa eisel_lemire(std::int64_t q, std::uint64_t w) noexce
   int const power2 = (((152170 + 65536) * int(q)) >> 16) + 63;
   answer.power2 = power2 + upperbit - lz - (format::exponent_bias);
 
-  if (answer.power2 <= 0) {  // subnormal
+  if (answer.power2 <= 0) {
     if (-answer.power2 + 1 >= 64) return {0, 0};
     answer.mantissa >>= -answer.power2 + 1;
     answer.mantissa += (answer.mantissa & 1);
@@ -86,8 +80,6 @@ constexpr adjusted_mantissa eisel_lemire(std::int64_t q, std::uint64_t w) noexce
   return answer;
 }
 
-// Decimal to binary: exact comparison for more than 19 significant digits
-//
 // When the 19 leading digits w and w + 1 round to different floats, the
 // input lies near the midpoint between them, and only exact arithmetic on
 // all digits can tell which side.
@@ -97,7 +89,6 @@ public:
   // enough for any comparison made below (about 2,700 bits for double)
   static constexpr std::size_t capacity = 160;
 
-  // *this = *this * m + a
   constexpr void mul_add(std::uint32_t m, std::uint32_t a) noexcept
   {
     std::uint64_t carry = a;
@@ -226,8 +217,6 @@ constexpr adjusted_mantissa round_exactly(decimal_digits<charT> const& d, adjust
   return {next & ((std::uint64_t(1) << format::significand_bits) - 1), int(next >> format::significand_bits)};
 }
 
-// Decimal to binary: scanning and the overall conversion
-
 template<class Float>
 constexpr Float to_float(bool negative, adjusted_mantissa am) noexcept
 {
@@ -329,10 +318,6 @@ constexpr std::pair<Float, std::size_t> parse_float(std::basic_string_view<charT
   return {to_float<Float>(negative, am), i};
 }
 
-}  // namespace detail::number
+}  // namespace yk::json20::detail::number
 
-}  // namespace json20
-
-}  // namespace yk
-
-#endif  // YK_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP
+#endif  // YK_ZZ_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP

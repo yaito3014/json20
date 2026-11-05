@@ -1435,7 +1435,8 @@ DOM・パーサが 1 つのファイルに同居していた。作者の方針�
 
 | ファイル | 中身 |
 |---|---|
-| `detail/fixed_string.hpp` | `basic_fixed_string`、`select_str`、`YK_JSON20_WIDEN_STRING` |
+| `detail/fixed_string.hpp` | `basic_fixed_string` |
+| `detail/select_str.hpp` | `select_str`、`YK_JSON20_WIDEN_STRING` |
 | `detail/number/u128.hpp` | 128 ビットの演算 |
 | `detail/number/pow5.hpp` | 圧縮した 5 の累乗の表(A 方式)と、そこから各ライブラリの表を導く関数 |
 | `detail/number/ieee754.hpp` | IEEE 754 の形式の定数、`ieee754_binary`、`self_converted` |
@@ -1486,6 +1487,12 @@ DOM・パーサが 1 つのファイルに同居していた。作者の方針�
 修正: `<iterator>` を外した。`std::begin` / `std::end` は `<string>` でも宣言されることが規格で決まっているので、
 その旨を include の横にコメントで残した。手元の自己完結の確認は C++20 で行っていたので、この失敗は CI の
 EBCDIC + C++26 のジョブで初めて見つかった。
+
+その後 (2026-11-05)、`std::begin` / `std::end` に頼るのをやめた。使っていた 3 つのバッファ (`format_float` の桁のバッファ、
+整数の serializer と `long double` の serializer のバッファ) を `std::array` にし、範囲は `data()` と `size()` から作る。
+`std::array::end()` はポインタとは限らない (規格が求めるのは連続イテレータであることだけ) ので使わない。これで
+`<iterator>` が要る理由そのものがなくなり、include の横のコメントも削除した。`<string>` は、どちらのヘッダも
+`std::basic_string` を返すので引き続き include している。
 
 ### 追記: 単一ヘッダはコミットせず、CI で生成する(作者判断)
 
