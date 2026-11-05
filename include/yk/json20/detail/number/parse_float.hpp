@@ -1,10 +1,10 @@
 #ifndef YK_ZZ_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP
 #define YK_ZZ_JSON20_DETAIL_NUMBER_PARSE_FLOAT_HPP
 
-#include <yk/json20/detail/fixed_string.hpp>
 #include <yk/json20/detail/number/ieee754.hpp>
 #include <yk/json20/detail/number/pow5.hpp>
 #include <yk/json20/detail/number/u128.hpp>
+#include <yk/json20/detail/select_str.hpp>
 
 #include <array>
 #include <bit>

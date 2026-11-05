@@ -2,7 +2,7 @@
 #define YK_ZZ_JSON20_JSON_HPP
 
 #include <yk/json20/conversion.hpp>
-#include <yk/json20/detail/fixed_string.hpp>
+#include <yk/json20/detail/select_str.hpp>
 
 #include <algorithm>
 #include <concepts>

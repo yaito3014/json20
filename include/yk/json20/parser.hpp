@@ -2,6 +2,7 @@
 #define YK_ZZ_JSON20_PARSER_HPP
 
 #include <yk/json20/detail/fixed_string.hpp>
+#include <yk/json20/detail/select_str.hpp>
 #include <yk/json20/json.hpp>
 #include <yk/json20/visitor.hpp>
 
