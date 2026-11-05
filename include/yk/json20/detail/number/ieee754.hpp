@@ -13,8 +13,6 @@ namespace json20 {
 
 namespace detail::number {
 
-// IEEE-754 formats
-
 template<class Float>
 struct ieee754;
 

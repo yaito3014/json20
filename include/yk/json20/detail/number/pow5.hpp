@@ -14,8 +14,6 @@ namespace json20 {
 
 namespace detail::number {
 
-// Powers of five
-//
 // F(q) is 5^q scaled into [2^127, 2^128) and rounded down, q in [-342, 326].
 // Every table the conversions need derives from it (see
 // tools/gen_pow5_table.py): every 27th F is stored, and the rest is recovered

@@ -97,7 +97,7 @@ Float random_finite(std::mt19937_64& rng)
 
 // exact decimal digits of an arbitrary-precision integer kept in base 10^9
 struct decimal_bigint {
-  std::vector<std::uint32_t> limbs;  // little-endian, base 10^9
+  std::vector<std::uint32_t> limbs;  // little-endian
 
   explicit decimal_bigint(std::uint64_t v)
   {

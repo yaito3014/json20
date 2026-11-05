@@ -14,8 +14,6 @@
 
 namespace yk::json20::detail::number {
 
-// Binary to decimal: formatting
-//
 // Same output as std::to_chars(first, last, value): the shortest round-trip
 // digits, in fixed or scientific notation whichever is shorter (fixed on a
 // tie), with an exponent of at least two digits.

@@ -14,8 +14,6 @@ namespace json20 {
 
 namespace detail::number {
 
-// Binary to decimal: Dragonbox
-//
 // Adapted from the simple implementation of Dragonbox
 // (https://github.com/jk-jeon/dragonbox), Copyright 2024-2025 Junekey Jeon,
 // Toby Bell, used under the Boost Software License 1.0. The caches come from

@@ -5,8 +5,6 @@
 
 namespace yk::json20::detail::number {
 
-// 128-bit arithmetic
-
 struct u128 {
   std::uint64_t hi;
   std::uint64_t lo;
