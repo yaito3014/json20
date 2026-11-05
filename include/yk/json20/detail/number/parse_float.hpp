@@ -109,7 +109,7 @@ public:
 
   constexpr void mul_pow5(std::int64_t n) noexcept
   {
-    for (; n >= 13; n -= 13) mul_add(1220703125, 0);
+    for (; n >= 13; n -= 13) mul_add(1220703125, 0);  // 5^13
     std::uint32_t p = 1;
     for (; n > 0; --n) p *= 5;
     mul_add(p, 0);
