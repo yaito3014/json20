@@ -104,11 +104,8 @@ constexpr std::basic_string<charT> format_float(Float x)
     return make_string(buf, len);
   }
 
-  auto [significand, exponent] = dragonbox::to_decimal(x);
-  while (significand % 10 == 0) {
-    significand /= 10;
-    ++exponent;
-  }
+  // no trailing zeros: Dragonbox's to_decimal removes them
+  auto const [significand, exponent] = dragonbox::to_decimal(x);
   charT digit_buf[20]{};
   charT const* const digits = write_digits(std::end(digit_buf), significand);
   int const n = int(std::end(digit_buf) - digits);
