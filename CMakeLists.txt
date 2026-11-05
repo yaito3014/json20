@@ -15,17 +15,39 @@ add_library(json20 INTERFACE)
 
 target_compile_features(json20 INTERFACE cxx_std_20)
 
-# single_include/ holds the same library as one generated file
-# (tools/amalgamate.py); the option builds and installs that instead
+# The option builds and installs the library as one file, generated from
+# include/ by tools/amalgamate.py into the build tree, instead of the parts
 option(
     JSON20_SINGLE_INCLUDE
-    "use the generated single header in single_include/ instead of include/"
+    "use json20 as a single header generated from include/ (needs Python 3)"
     OFF
 )
 if(JSON20_SINGLE_INCLUDE)
-    set(YK_JSON20_INCLUDE_DIR single_include)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(YK_JSON20_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/single_include)
+    file(
+        GLOB_RECURSE YK_JSON20_PARTS
+        CONFIGURE_DEPENDS
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp
+    )
+    # regenerated whenever a part or the script changes, through a reconfigure
+    set_property(
+        DIRECTORY
+        APPEND
+        PROPERTY
+            CMAKE_CONFIGURE_DEPENDS
+                ${YK_JSON20_PARTS}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/amalgamate.py
+    )
+    execute_process(
+        COMMAND
+            ${Python3_EXECUTABLE}
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/amalgamate.py
+            ${YK_JSON20_INCLUDE_DIR}/yk/json20.hpp
+        COMMAND_ERROR_IS_FATAL ANY
+    )
 else()
-    set(YK_JSON20_INCLUDE_DIR include)
+    set(YK_JSON20_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 endif()
 
 file(

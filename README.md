@@ -10,7 +10,7 @@ so JSON can be validated and read at compile time as well as at run time.
   execution character sets such as EBCDIC
 - **Strict**: input must be RFC 8259 JSON, a DOM rejects duplicate object keys by default, and
   accessors never convert between kinds
-- **No dependencies**: one header, `<yk/json20.hpp>`, also available as a single self-contained
+- **No dependencies**: include `<yk/json20.hpp>`, or bundle the library into one self-contained
   file
 
 ## Quick start
@@ -158,7 +158,7 @@ A visitor receives every object member, repeated keys included; handling duplica
 
 ## Installation
 
-Copy `single_include/yk/json20.hpp`, a single file containing the whole library, or use CMake:
+Copy the `include/` directory, or use CMake:
 
 ```cmake
 include(FetchContent)
@@ -169,6 +169,15 @@ target_link_libraries(your_target PRIVATE yk::json20)
 ```
 
 After `cmake --install`, `find_package(json20)` provides the same `yk::json20` target.
+
+To use a single file instead, generate it from `include/`:
+
+```sh
+python3 tools/amalgamate.py   # writes single_include/yk/json20.hpp
+```
+
+It needs only Python 3. The file is also kept as the `json20-single-header` artifact of each CI
+run, and `-DJSON20_SINGLE_INCLUDE=ON` makes the CMake target use a generated single file.
 
 json20 requires C++20. CI tests C++23 and C++26 with GCC 14, Clang 21 (libstdc++ and libc++),
 and MSVC 2022 and 2026.
@@ -184,10 +193,8 @@ ctest --test-dir build
 The tests need C++23 and use Catch2, which CMake downloads automatically. Projects that use
 json20 through CMake do not download it.
 
-The sources are split into parts under `include/yk/json20/`; `single_include/yk/json20.hpp` is
-generated from them. After changing a header, regenerate it with `python3 tools/amalgamate.py`
-(CI fails if it is out of date). `-DJSON20_SINGLE_INCLUDE=ON` builds the tests against the
-generated file instead of the parts.
+`-DJSON20_SINGLE_INCLUDE=ON` builds the tests against the generated single file instead of the
+headers under `include/`; CI does both.
 
 ## License
 

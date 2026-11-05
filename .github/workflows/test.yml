@@ -14,7 +14,6 @@ on:
       - main
     paths: &paths-to-detect
       - "include/**/*"
-      - "single_include/**/*"
       - "tools/**/*"
       - "tests/**/*"
       - "cmake/**/*"
@@ -140,14 +139,13 @@ jobs:
       - name: Run test
         run: |
           ctest --test-dir build -C ${{ matrix.build-type }} --output-on-failure
-  # the generated single header is current, and passes the tests by itself
+  # the single header generated from include/ passes the tests by itself;
+  # it is kept as an artifact for anyone who wants the one file
   single-header:
     name: Single header (GCC 14 on ubuntu)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      - name: Check that single_include/ is up to date
-        run: python3 tools/amalgamate.py --check
       - name: Init Ubuntu
         run: |
           echo "set man-db/auto-update false" | sudo debconf-communicate
@@ -167,6 +165,11 @@ jobs:
         run: cmake --build build
       - name: Run test
         run: ctest --test-dir build --output-on-failure
+      - name: Upload the single header
+        uses: actions/upload-artifact@v4
+        with:
+          name: json20-single-header
+          path: build/single_include/yk/json20.hpp
   run-notifier:
     needs: build
     runs-on: ubuntu-latest
