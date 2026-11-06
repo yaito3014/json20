@@ -1535,3 +1535,47 @@ json20 は C++20 が前提で、`<bit>` もすでに include している(`std::
 `remove_trailing_zeros` ですでに取り除いているので、このループは一度も回っていなかった。乱数の値 1,000 万個、
 m × 10^n の形の値 10 万個、すべての 2 の累乗(double と float の両方)で、`to_decimal` の結果に末尾の 0 が
 残らないことを確かめた。出力は `std::to_chars` とビット単位で突き合わせるテストで検証している。
+
+## 2026-11-06 設計判断: 浮動小数点の形式を列挙し、型の名前ではなく形式で判定する(作者判断)
+
+### 発端
+
+- 形式の定数 `ieee754<T>` は型ごとの特殊化で、`float` と `double` しかなかった。`ieee754_binary<T>` も、型を
+  `std::same_as` で列挙していた
+- そのため、`std::float64_t` は binary64 なのに標準ライブラリの経路に入っていた(2026-11-05 の記録)。MSVC と
+  Apple silicon の `long double` も binary64 だが、同じく標準ライブラリの経路だった
+- `<stdfloat>` の型を名前で挙げるには、C++23 と `__STDCPP_FLOAT64_T__` などによる分岐が要る。json20 は C++20 が前提
+
+### 判断
+
+- 形式を列挙する: `enum class float_format { binary32, binary64 };`。スコープ付き列挙の基底型は、指定しなくても
+  `int` に固定される([dcl.enum]/5)ので、後から列挙子を足しても大きさは変わらない
+- 定数は形式で引く(`format_traits<F>`)。配置の定数(仮数部と指数部のビット数、バイアス、指数の範囲、無限大の指数)は、
+  幅 k と精度 p から導く(`binary_layout<k, p, carrier>`)。手で書くのは、アルゴリズムに固有の定数(Eisel-Lemire の
+  10 の累乗の範囲、偶数丸めの範囲、`max_digits`)だけ。Dragonbox の部品(`dragonbox::format`)も形式で引く
+- 型から形式へは `format_of<T>` で写す。`std::floating_point` な T のうち、`std::numeric_limits<T>` の `is_iec559`、
+  `radix`、`digits`、`min_exponent`、`max_exponent` と `sizeof(T)` がその形式に一致するものにだけ `value` がある。
+  どの形式にも一致しない型には `value` がなく、それが標準ライブラリの経路を選ぶ
+- `ieee754_binary<T>` は「`format_of<T>::value` がある」こと。`self_converted<T>` は今までどおりそれと同じ
+
+結果:
+
+- `std::float32_t` / `std::float64_t` は、`<stdfloat>` を include せず、名前も挙げずに自前の変換に入る(C++20 のまま)。
+  すべての文字型で使え、定数式でも動く
+- `long double` は、binary64 の環境(MSVC、Apple silicon)では自前の変換に入る。x87 の 80 ビットや binary128 の
+  `long double` は、今までどおり標準ライブラリの経路
+- 標準ライブラリの経路のテストは、`std::float64_t` の代わりに `std::float16_t` を使う(`__STDCPP_FLOAT16_T__` が
+  定義される環境だけ)
+
+配置の定数を `std::numeric_limits` から導かない理由: `format_of` の判定は、型の `numeric_limits` の値が形式の定数に
+一致することを確かめるもの。定数を `numeric_limits` から作ると、比べる相手が自分自身になり、どんな型でも一致して
+しまう。幅と精度は IEEE 754 の binary 形式の定義そのものなので、そこから導けば、判定は型と独立した基準と比べることになる。
+導いた値が以前の手書きの定数と一致することは、テストの `static_assert` で確かめている。
+
+### 見送った案
+
+- **`<stdfloat>` の型を名前で挙げる**: C++23 と機能テストマクロによる分岐が要り、binary64 の `long double` も拾えない
+- **型をキーにしたまま、`std::float64_t` などの特殊化を足す**(2026-11-05 の記録の「将来」に書いた方法): 同じ定数を型の数だけ
+  繰り返すことになり、`long double` のように環境で形式が変わる型は特殊化できない
+- **binary16 や binary128 も今のうちに列挙する**: Eisel-Lemire と Dragonbox の定数と表は、binary32 と binary64 のための
+  もの。列挙子は、その形式の変換を実装するときに足す。それまでは `format_of` が一致せず、標準ライブラリの経路に入る
