@@ -54,11 +54,11 @@ struct mul_parity_result {
   bool is_integer;
 };
 
-template<class Float>
+template<float_format Format>
 struct format;
 
 template<>
-struct format<float> {
+struct format<float_format::binary32> {
   using carrier_uint = std::uint32_t;
   using cache_type = std::uint64_t;
   static constexpr int cache_bits = 64;
@@ -118,7 +118,7 @@ struct format<float> {
 };
 
 template<>
-struct format<double> {
+struct format<float_format::binary64> {
   using carrier_uint = std::uint64_t;
   using cache_type = u128;
   static constexpr int cache_bits = 128;
@@ -192,12 +192,12 @@ struct decimal_fp {
 // The shortest decimal significand * 10^exponent that rounds back to the
 // given finite, nonzero float (ties broken towards the closest, then even).
 template<class Float>
-constexpr decimal_fp<typename ieee754<Float>::carrier_uint> to_decimal(Float x) noexcept
+constexpr decimal_fp<typename traits_of<Float>::carrier_uint> to_decimal(Float x) noexcept
 {
-  using fmt = format<Float>;
-  using carrier_uint = typename ieee754<Float>::carrier_uint;
-  constexpr int significand_bits = ieee754<Float>::significand_bits;
-  constexpr int exponent_bits = ieee754<Float>::exponent_bits;
+  using fmt = format<format_of<Float>::value>;
+  using carrier_uint = typename traits_of<Float>::carrier_uint;
+  constexpr int significand_bits = traits_of<Float>::significand_bits;
+  constexpr int exponent_bits = traits_of<Float>::exponent_bits;
   constexpr int carrier_bits = 8 * int(sizeof(carrier_uint));
   constexpr int kappa = floor_log10_pow2(carrier_bits - significand_bits - 2) - 1;
   constexpr carrier_uint big_divisor = compute_power(carrier_uint(10), kappa + 1);
@@ -216,7 +216,7 @@ constexpr decimal_fp<typename ieee754<Float>::carrier_uint> to_decimal(Float x) 
   carrier_uint two_fc = binary_significand * 2;
 
   if (binary_exponent != 0) {
-    binary_exponent += ieee754<Float>::exponent_bias - significand_bits;
+    binary_exponent += traits_of<Float>::exponent_bias - significand_bits;
 
     // shorter interval case: the significand is a power of two
     if (two_fc == 0) {
@@ -248,7 +248,7 @@ constexpr decimal_fp<typename ieee754<Float>::carrier_uint> to_decimal(Float x) 
 
     two_fc |= carrier_uint(1) << (significand_bits + 1);
   } else {
-    binary_exponent = ieee754<Float>::min_exponent - significand_bits;
+    binary_exponent = traits_of<Float>::min_exponent - significand_bits;
   }
 
   // step 1: Schubfach multiplier calculation
