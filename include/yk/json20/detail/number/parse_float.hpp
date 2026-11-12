@@ -29,7 +29,7 @@ namespace yk::json20::detail::number {
 template<class Float>
 constexpr adjusted_mantissa eisel_lemire(std::int64_t q, std::uint64_t w) noexcept
 {
-  using format = ieee754<Float>;
+  using format = traits_of<Float>;
   if (w == 0 || q < format::smallest_power_of_ten) return {0, 0};
   if (q > format::largest_power_of_ten) return {0, format::infinite_power};
 
@@ -161,7 +161,7 @@ struct decimal_digits {
 template<class Float, class charT>
 constexpr adjusted_mantissa round_exactly(decimal_digits<charT> const& d, adjusted_mantissa am) noexcept
 {
-  using format = ieee754<Float>;
+  using format = traits_of<Float>;
   constexpr auto zero = YK_JSON20_WIDEN_STRING(charT, "0");
 
   // the decimal as (all significant digits) * 10^exponent, keeping at most
@@ -220,9 +220,9 @@ constexpr adjusted_mantissa round_exactly(decimal_digits<charT> const& d, adjust
 template<class Float>
 constexpr Float to_float(bool negative, adjusted_mantissa am) noexcept
 {
-  using carrier_uint = typename ieee754<Float>::carrier_uint;
-  constexpr int significand_bits = ieee754<Float>::significand_bits;
-  constexpr int sign_index = significand_bits + ieee754<Float>::exponent_bits;
+  using carrier_uint = typename traits_of<Float>::carrier_uint;
+  constexpr int significand_bits = traits_of<Float>::significand_bits;
+  constexpr int sign_index = significand_bits + traits_of<Float>::exponent_bits;
   auto const word = carrier_uint(am.mantissa | (carrier_uint(am.power2) << significand_bits) | (carrier_uint(negative) << sign_index));
   return std::bit_cast<Float>(word);
 }
@@ -313,7 +313,7 @@ constexpr std::pair<Float, std::size_t> parse_float(std::basic_string_view<charT
     if (!(am == above)) am = round_exactly<Float>(d, am);
   }
 
-  if (am.power2 == ieee754<Float>::infinite_power) throw std::invalid_argument("number out of range");
+  if (am.power2 == traits_of<Float>::infinite_power) throw std::invalid_argument("number out of range");
   if (am.power2 == 0 && am.mantissa == 0) throw std::invalid_argument("number out of range");
   return {to_float<Float>(negative, am), i};
 }

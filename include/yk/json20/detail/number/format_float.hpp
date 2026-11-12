@@ -81,9 +81,9 @@ constexpr std::basic_string<charT> format_float(Float x)
   constexpr auto dot = YK_JSON20_WIDEN_STRING(charT, ".");
   constexpr auto e = YK_JSON20_WIDEN_STRING(charT, "e");
 
-  using carrier_uint = typename ieee754<Float>::carrier_uint;
-  constexpr int significand_bits = ieee754<Float>::significand_bits;
-  constexpr int sign_index = significand_bits + ieee754<Float>::exponent_bits;
+  using carrier_uint = typename traits_of<Float>::carrier_uint;
+  constexpr int significand_bits = traits_of<Float>::significand_bits;
+  constexpr int sign_index = significand_bits + traits_of<Float>::exponent_bits;
   auto const bits = std::bit_cast<carrier_uint>(x);
 
   // built in place and copied out once: appending piecewise to the string
@@ -126,12 +126,12 @@ constexpr std::basic_string<charT> format_float(Float x)
       // then takes the one closest to the value: the value itself, which is
       // an integer here (below 10^22 for double, 10^14 for float).
       constexpr auto significand_mask = (carrier_uint(1) << significand_bits) - 1;
-      int const biased = int((bits >> significand_bits) & ((carrier_uint(1) << ieee754<Float>::exponent_bits) - 1));
+      int const biased = int((bits >> significand_bits) & ((carrier_uint(1) << traits_of<Float>::exponent_bits) - 1));
       std::uint64_t m = std::uint64_t(bits & significand_mask);
-      int e2 = ieee754<Float>::min_exponent - significand_bits;
+      int e2 = traits_of<Float>::min_exponent - significand_bits;
       if (biased != 0) {
         m |= std::uint64_t(1) << significand_bits;
-        e2 = biased + ieee754<Float>::exponent_bias - significand_bits;
+        e2 = biased + traits_of<Float>::exponent_bias - significand_bits;
       }
       if (e2 < 0) {
         m >>= -e2;

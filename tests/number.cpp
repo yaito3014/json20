@@ -7,6 +7,7 @@
 #include <bit>
 #include <charconv>
 #include <cmath>
+#include <concepts>
 #include <cstdint>
 #include <limits>
 #include <random>
@@ -16,7 +17,7 @@
 #include <utility>
 #include <vector>
 
-#if defined(__STDCPP_FLOAT64_T__)
+#if defined(__STDCPP_FLOAT16_T__) || defined(__STDCPP_FLOAT32_T__) || defined(__STDCPP_FLOAT64_T__)
 #include <stdfloat>
 #endif
 
@@ -58,7 +59,7 @@ std::string std_to_chars(Float x, std::chars_format fmt, int precision)
 template<class Float>
 struct parsed {
   bool ok;
-  typename number::ieee754<Float>::carrier_uint bits;
+  typename number::traits_of<Float>::carrier_uint bits;
 
   friend bool operator==(parsed, parsed) = default;
 };
@@ -70,7 +71,7 @@ parsed<Float> std_parse(std::string_view s)
   auto const r = std::from_chars(s.data(), s.data() + s.size(), value);
   if (r.ec != std::errc{}) return {false, 0};
   REQUIRE(r.ptr == s.data() + s.size());
-  return {true, std::bit_cast<typename number::ieee754<Float>::carrier_uint>(value)};
+  return {true, std::bit_cast<typename number::traits_of<Float>::carrier_uint>(value)};
 }
 
 template<class Float>
@@ -79,7 +80,7 @@ parsed<Float> our_parse(std::string_view s)
   try {
     auto const [value, consumed] = number::parse_float<Float>(s);
     REQUIRE(consumed == s.size());
-    return {true, std::bit_cast<typename number::ieee754<Float>::carrier_uint>(value)};
+    return {true, std::bit_cast<typename number::traits_of<Float>::carrier_uint>(value)};
   } catch (std::invalid_argument const&) {
     return {false, 0};
   }
@@ -88,7 +89,7 @@ parsed<Float> our_parse(std::string_view s)
 template<class Float>
 Float random_finite(std::mt19937_64& rng)
 {
-  using carrier_uint = typename number::ieee754<Float>::carrier_uint;
+  using carrier_uint = typename number::traits_of<Float>::carrier_uint;
   while (true) {
     auto const x = std::bit_cast<Float>(carrier_uint(rng()));
     if (std::isfinite(x)) return x;
@@ -371,19 +372,55 @@ TEST_CASE("infinity and NaN are rejected", "[number]")
 
 TEST_CASE("which floating-point types json20 converts itself", "[number]")
 {
-  // IEEE 754 binary32 and binary64, as float and double are on every
-  // platform CI covers: every character type, constant evaluation
+  // a type is recognized by its format, not by its name: IEEE 754 binary32
+  // and binary64, as float and double are on every platform CI covers.
+  // Those convert in every character type and in constant evaluation.
+  static_assert(number::format_of<float>::value == number::float_format::binary32);
+  static_assert(number::format_of<double>::value == number::float_format::binary64);
   static_assert(number::self_converted<float>);
   static_assert(number::self_converted<double>);
 
-  // anything else goes through std::from_chars / std::to_chars, char only
-  static_assert(!number::self_converted<long double>);
-#if defined(__STDCPP_FLOAT64_T__)
-  // IEEE binary64, but not double: the same std path as a non-IEEE double
-  static_assert(!number::self_converted<std::float64_t>);
+  // binary64 on MSVC and Apple silicon, wider (or double-double) elsewhere
+  static_assert(number::self_converted<long double> == (std::numeric_limits<long double>::digits == 53));
+
   using yk::json20::json;
-  CHECK(json(std::float64_t(0.1)).as_string_unchecked() == "0.1");
-  CHECK(yk::json20::json_parser::parse("[2.5e-3]").at(0).as_floating_point<std::float64_t>() == std::float64_t(2.5e-3));
-  CHECK_THROWS_AS(json(std::numeric_limits<std::float64_t>::infinity()), std::invalid_argument);
+  using yk::json20::u16json;
+#if defined(__STDCPP_FLOAT32_T__)
+  static_assert(number::format_of<std::float32_t>::value == number::float_format::binary32);
+  CHECK(u16json(std::float32_t(0.1f)).as_string_unchecked() == u"0.1");
 #endif
+#if defined(__STDCPP_FLOAT64_T__)
+  static_assert(number::format_of<std::float64_t>::value == number::float_format::binary64);
+  CHECK(u16json(std::float64_t(0.1)).as_string_unchecked() == u"0.1");
+  CHECK(yk::json20::u16json_parser::parse(u"[2.5e-3]").at(0).as_floating_point<std::float64_t>() == std::float64_t(2.5e-3));
+#endif
+
+#if defined(__STDCPP_FLOAT16_T__)
+  // anything else goes through std::from_chars / std::to_chars, char only
+  static_assert(!number::self_converted<std::float16_t>);
+  CHECK(json(std::float16_t(0.1f)).as_string_unchecked() == "0.1");
+  CHECK(yk::json20::json_parser::parse("[2.5e-3]").at(0).as_floating_point<std::float16_t>() == std::float16_t(2.5e-3f));
+  CHECK_THROWS_AS(json(std::numeric_limits<std::float16_t>::infinity()), std::invalid_argument);
+#endif
+}
+
+TEST_CASE("IEEE 754 layouts derived from width and precision", "[number]")
+{
+  using binary32 = number::format_traits<number::float_format::binary32>;
+  static_assert(std::same_as<binary32::carrier_uint, std::uint32_t>);
+  static_assert(binary32::significand_bits == 23);
+  static_assert(binary32::exponent_bits == 8);
+  static_assert(binary32::exponent_bias == -127);
+  static_assert(binary32::min_exponent == -126);
+  static_assert(binary32::max_exponent == 127);
+  static_assert(binary32::infinite_power == 0xff);
+
+  using binary64 = number::format_traits<number::float_format::binary64>;
+  static_assert(std::same_as<binary64::carrier_uint, std::uint64_t>);
+  static_assert(binary64::significand_bits == 52);
+  static_assert(binary64::exponent_bits == 11);
+  static_assert(binary64::exponent_bias == -1023);
+  static_assert(binary64::min_exponent == -1022);
+  static_assert(binary64::max_exponent == 1023);
+  static_assert(binary64::infinite_power == 0x7ff);
 }
