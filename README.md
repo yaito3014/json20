@@ -191,7 +191,7 @@ cmake --build build
 ctest --test-dir build
 ```
 
-The tests need C++23 and use Catch2, which CMake downloads automatically. Projects that use
+The tests need C++20 and use Catch2, which CMake downloads automatically. Projects that use
 json20 through CMake do not download it.
 
 `-DJSON20_SINGLE_INCLUDE=ON` builds the tests against the generated single file instead of the

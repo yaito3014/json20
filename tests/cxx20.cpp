@@ -1,5 +1,5 @@
-// Built as C++20, the library's minimum standard (the other tests use C++23
-// features). Successful compilation is most of the test.
+// Built as C++20, the library's minimum standard, whatever standard the other
+// tests are built with. Successful compilation is most of the test.
 
 #include <yk/json20.hpp>
 
