@@ -28,7 +28,7 @@ jobs:
   test:
     uses: yaito3014/cpp-ci/.github/workflows/cmake-test.yml@v0.1.0
     with:
-      cxx-versions: "[23, 26]"
+      cxx-versions: "[20, 23, 26]"
       cmake-args: -DJSON20_CI=ON
   # the single header generated from include/ passes the tests by itself;
   # it is kept as an artifact for anyone who wants the one file
@@ -46,7 +46,7 @@ jobs:
         run: >
           cmake -G Ninja
           -DCMAKE_BUILD_TYPE=Debug
-          -DCMAKE_CXX_STANDARD=23
+          -DCMAKE_CXX_STANDARD=20
           -DCMAKE_CXX_COMPILER=${{ steps.setup.outputs.cxx }}
           -DJSON20_SINGLE_INCLUDE=ON
           -DJSON20_CI=ON

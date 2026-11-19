@@ -180,8 +180,8 @@ python3 tools/amalgamate.py   # writes single_include/yk/json20.hpp
 It needs only Python 3. The file is also kept as the `json20-single-header` artifact of each CI
 run, and `-DJSON20_SINGLE_INCLUDE=ON` makes the CMake target use a generated single file.
 
-json20 requires C++20. CI tests C++23 and C++26 with GCC 14, Clang 21 (libstdc++ and libc++),
-and MSVC 2022 and 2026.
+json20 requires C++20. CI tests C++20, C++23, and C++26 with GCC 14, Clang 21 (libstdc++ and
+libc++), and MSVC 2022 and 2026.
 
 ## Building the tests
 
